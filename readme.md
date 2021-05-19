@@ -5,5 +5,5 @@ This is only an academic project designed to immitate the inner-workings of a da
 To build this project, simply clone this project and then compile it as follows:
 ````
 make
-bin/myOwnSQL.o
+bin/mySQLDB.o
 ````
