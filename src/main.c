@@ -7,15 +7,17 @@ int main (int argc, char* argv[]){
         outputToUser();
         inputFromUser(in);
         
-        if (strcmp(in->buffer, ".exit") == 0){
-            // Exit
-            freeBuffer(in);
-            exit(EXIT_SUCCESS);
+        if (isCommand(in)){ // process as command
+            int res = processCommand(in);
+            if (res == -1)
+                printf("Error: Command not recognized - \"%s\".\n", in->buffer);
         }
-        else {
-            printf("Error: Command not recognized - \"%s\".\n",
-                   in->buffer);
+        else { // process as SQL statement
+            int res = processStatement(in);
+            if (res == -1)
+                printf("Error: Keyword not recognized - \"%s\".\n", in->buffer);
         }
+
     }
     return 0;
 }
