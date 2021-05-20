@@ -42,7 +42,7 @@ int insertToDatabase(inputBuffer* line){
     int res = sscanf(line->buffer, "insert %d %s %s",
                      &db->id[db->size], db->row[db->size][0], db->row[db->size][1]);
     
-    if (res < db->cols){
+    if (res < db->cols + 1){
         return -1;
     }
     db->size++;
