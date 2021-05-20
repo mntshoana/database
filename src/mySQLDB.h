@@ -31,6 +31,7 @@ void outputToUser();
 
 bool isCommand(inputBuffer* in);
 int processCommand(inputBuffer* cmd);
+
 int processStatement(inputBuffer* stmt);
 void execute(int stmt, inputBuffer* line);
 #endif

@@ -34,10 +34,10 @@ int insertToDatabase(inputBuffer* line){
     db->row = (char***)realloc(db->row, sizeof(char**) * (db->size +1) );
     
     // adjust col size of the line
-    db->row[db->size] = (char**)malloc(sizeof(char*) * db->cols);
+    db->row[db->size] = (char**)realloc(db->row[db->size], sizeof(char*) * db->cols);
     // adjust space for each col
     for (int i = 0; i < db->cols; i++)
-        db->row[db->size][i] = (char*)malloc(sizeof(char) * 32);
+        db->row[db->size][i] = (char*)realloc(db->row[db->size][i], sizeof(char) * 32);
     
     int res = sscanf(line->buffer, "insert %d %s %s",
                      &db->id[db->size], db->row[db->size][0], db->row[db->size][1]);
