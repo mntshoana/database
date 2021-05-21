@@ -1,9 +1,35 @@
+#include "mySQLDB.h"
+
 // SQLITE architecture
 // https://www.sqlite.org/zipvfs/doc/trunk/www/howitworks.wiki
 
-#include "mySQLDB.h"
+/*
+ * | id | col1 | col2 |
+ * | int| 32b  | 32b  |
+ * thus row size ==
+ */
+#define ROW_SIZE        ( sizeof(int) + sizeof(char) * 32 * 2 )
 
-table* db;
+const uint32_t PAGE_SIZE = 4096;
+const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
+const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+
+
+Table* newTable(){
+    Table* table = malloc(sizeof(Table));
+    table->num_rows = 0;
+    for (int i = 0; i < TABLE_MAX_PAGES; i++)
+        table->pages[i] = NULL;
+    
+    return table;
+}
+
+void freeTable(Table* table){
+    for (int i = 0; table->pages[i]; i++)
+        free(table->pages[i]);
+    free(table);
+}
+
 
 inputBuffer* initInputBuffer(){
     inputBuffer* buffer = (inputBuffer*)malloc(sizeof(inputBuffer));
@@ -20,49 +46,82 @@ void freeBuffer(inputBuffer* in){
     return;
 }
 
-void initDatabase(){
-    db = (table*)malloc(sizeof(table));
-    db->size = 0;
-    db->cols = 2; // id col + 2 other columns
+
+void serializeRow(Row* source, void* target){
+    memcpy(target, &(source->id), sizeof(int));
+    memcpy(target + sizeof(int), &(source->col), sizeof(char) * 32 * source->colCount);
 }
 
-int insertToDatabase(inputBuffer* line){
-    if (db == NULL)
-        initDatabase();
-    // Add line
-    db->id = (int*)realloc(db->id, sizeof(int) * (db->size +1) );
-    db->row = (char***)realloc(db->row, sizeof(char**) * (db->size +1) );
+void deserializeRow(void* source, Row* target){
+    memcpy(&(target->id), source, sizeof(int));
+    memcpy(&(target->col), source + sizeof(int), sizeof(char) * 32 * source->colCount);
+}
+
+void* indexRow(Table* table, uint32_t row){
+    uint32_t pgNr  = row / ROWS_PER_PAGE;
+    void* page = table->pages[pgNr];
+    if (page == NULL)
+        page = table->pages[pgNr] = malloc(PAGE_SIZE);
+    
+    uint32_t offset = (row % ROWS_PER_PAGE) * ROW_SIZE;
+    return page + offset;
+}
+
+Row* prepareRow(int cols){
+    Row* temp = (Row*)malloc(sizeof(Row));
+    temp->colCount = cols; // id col + 2 other columns
     
     // adjust col size of the line
-    db->row[db->size] = (char**)realloc(db->row[db->size], sizeof(char*) * db->cols);
+    temp->col = (char**)malloc( sizeof(char*) * temp->colCount);
     // adjust space for each col
-    for (int i = 0; i < db->cols; i++)
-        db->row[db->size][i] = (char*)realloc(db->row[db->size][i], sizeof(char) * 32);
+    for (int i = 0; i < temp->colCount; i++)
+        temp->col[i] = (char*)malloc( sizeof(char) * 32);
     
+    return temp;
+}
+
+void freeRow(Row* row){
+    for (int i = 0; i < row->colCount; i++)
+        free(row->col[i]); // space for each col
+    free(row->col); // cols
+    free(row);
+}
+
+int insertRowToTable(inputBuffer* line, Table* table){
+    Row* row = prepareRow(2); // 2 coloums required + id column
     int res = sscanf(line->buffer, "insert %d %s %s",
-                     &db->id[db->size], db->row[db->size][0], db->row[db->size][1]);
+                     &row->id, row->col[0], row->col[1]);
     
-    if (res < db->cols + 1){
+    if (res < row->colCount + 1){
+        free(row);
         return -1;
     }
-    db->size++;
+    
+    //insert Row To Table
+    serializeRow(row, indexRow(table, table->num_rows));
+    table->num_rows++;
+    
+    free(row);
     return 1;
     
 }
-void freeDatabase(){
-    if (db == NULL)
-        return;
 
-    for (int i = 0; i < db->size; i++){
-        for (int j = 0; j < db->cols; j++)
-            free(db->row[i][j]); // space for each col
-        free(db->row[i]); // cols
-    }
-    free(db->row);//rows
-    free(db->id);
+int selectfromTable(inputBuffer* line, Table* table){
+    Row* row = prepareRow(2); // 2 columns requred + id coloum
+    int res = sscanf(line->buffer, "select ..."); // Todo
     
-    free (db);
-    db = NULL;
+    if (res < row->colCount + 1){
+    //    free(row);
+    //    return -1;
+    }
+    
+    //retrieve Rows from Table
+    for (uint32_t i = 0; i < table->num_rows; i++){
+        deserializeRow(indexRow(table, i), row);
+    }
+    
+    free(row);
+    return 1;
 }
 
 void inputFromUser(inputBuffer* in){
@@ -90,11 +149,11 @@ bool isCommand(inputBuffer* in){
         return false;
 }
 
-int processCommand(inputBuffer* cmd){
+int processCommand(inputBuffer* cmd, Table* table){
     if (strcmp(cmd->buffer, ".exit") == 0){
         // Exit
         freeBuffer(cmd);
-        freeDatabase();
+        freeTable(table);
         exit(EXIT_SUCCESS);
     }
     // Todo add more commands
@@ -104,22 +163,27 @@ int processCommand(inputBuffer* cmd){
 #define INSERT 1
 #define SELECT 2
 
-int processStatement(inputBuffer* stmt){
+int processStatement(inputBuffer* stmt, Table* table){
     if (strncmp(stmt->buffer, "insert", 6) == 0)
-        execute(INSERT, stmt);
+        execute(INSERT, stmt, table);
     else if (strncmp(stmt->buffer, "select", 6) == 0)
-        execute(SELECT, stmt);
+        execute(SELECT, stmt, table);
     else
         return -1;
     
     return 1;
 }
 
-void execute(int stmt, inputBuffer* line){
+void execute(int stmt, inputBuffer* line, Table* table){
+    int res;
     switch (stmt){
         case INSERT:
+            if (table->num_rows >= TABLE_MAX_ROWS){
+                printf("Error! Table is already full");
+                break;
+            }
             printf("Inserting...");
-            int res = insertToDatabase(line);
+            res = insertRowToTable(line, table);
             if (res == 1)
                 printf("Successfully executed insert statement.");
             else
@@ -127,8 +191,11 @@ void execute(int stmt, inputBuffer* line){
             break;
         case SELECT:
             printf("Selecting...");
-            // Todo
-            printf("Successfully executed select statement.");
+            res = selectfromTable(line, table);
+            if (res == 1)
+                printf("Successfully executed select statement.");
+            else
+                printf("Sytax Error");
             break;
     }
     printf("\n");
