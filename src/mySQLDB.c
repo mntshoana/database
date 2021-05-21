@@ -54,7 +54,7 @@ void serializeRow(Row* source, void* target){
 
 void deserializeRow(void* source, Row* target){
     memcpy(&(target->id), source, sizeof(int));
-    memcpy(&(target->col), source + sizeof(int), sizeof(char) * 32 * source->colCount);
+    memcpy(&(target->col), source + sizeof(int), sizeof(char) * 32 * target->colCount);
 }
 
 void* indexRow(Table* table, uint32_t row){
@@ -108,7 +108,7 @@ int insertRowToTable(inputBuffer* line, Table* table){
 
 int selectfromTable(inputBuffer* line, Table* table){
     Row* row = prepareRow(2); // 2 columns requred + id coloum
-    int res = sscanf(line->buffer, "select ..."); // Todo
+    int res = sscanf(line->buffer, "select ...\n"); // Todo
     
     if (res < row->colCount + 1){
     //    free(row);
@@ -118,6 +118,7 @@ int selectfromTable(inputBuffer* line, Table* table){
     //retrieve Rows from Table
     for (uint32_t i = 0; i < table->num_rows; i++){
         deserializeRow(indexRow(table, i), row);
+        printf("%d %s %s\n", row->id, row->col[0], row->col[1]);
     }
     
     free(row);
@@ -190,7 +191,7 @@ void execute(int stmt, inputBuffer* line, Table* table){
                 printf("Syntax Error!");
             break;
         case SELECT:
-            printf("Selecting...");
+            printf("Selecting...\n");
             res = selectfromTable(line, table);
             if (res == 1)
                 printf("Successfully executed select statement.");
