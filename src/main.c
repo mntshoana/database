@@ -7,17 +7,14 @@ int main (int argc, char* argv[]){
     while(true){
         outputToUser();
         inputFromUser(in);
+        int res;
+        if (isCommand(in)) // process as command
+            res processCommand(in, table);
+        else  // process as SQL statement
+            res = processStatement(in, table);
         
-        if (isCommand(in)){ // process as command
-            int res = processCommand(in, table);
-            if (res == -1)
-                printf("Error: Command not recognized - \"%s\".\n", in->buffer);
-        }
-        else { // process as SQL statement
-            int res = processStatement(in, table);
-            if (res == -1)
-                printf("Error: Keyword not recognized - \"%s\".\n", in->buffer);
-        }
+        if (res == -1)
+            printf("Error: %s not recognized - \"%s\".\n", isCommand(in) ? "Command":"Keyword", in->buffer);
 
     }
     return 0;
