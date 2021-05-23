@@ -41,7 +41,7 @@ void freeRow(Row* row);
 int insertRowToTable(inputBuffer* line, Table* table);
 int selectfromTable(inputBuffer* line, Table* table);
 
-void inputFromUser(inputBuffer* in);
+int inputFromUser(inputBuffer* in);
 void outputToUser();
 
 bool isCommand(inputBuffer* in);

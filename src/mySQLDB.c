@@ -125,17 +125,16 @@ int selectfromTable(inputBuffer* line, Table* table){
     return 1;
 }
 
-void inputFromUser(inputBuffer* in){
+int inputFromUser(inputBuffer* in){
     ssize_t inBytes = getline(&in->buffer, &in->length, stdin);
     if (inBytes <= 0){ // failed to input
-        printf("Error: unable to read the user input\n");
-        exit(EXIT_FAILURE);
+        return -1;
     }
     
     // remember the trailing newline
     in->inputLength = inBytes - 1;
     in->buffer[inBytes - 1] = '\0';
-    return;
+    return 1;
 }
 
 void outputToUser(){

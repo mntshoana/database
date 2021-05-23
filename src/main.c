@@ -6,10 +6,16 @@ int main (int argc, char* argv[]){
     inputBuffer* in = initInputBuffer();
     while(true){
         outputToUser();
-        inputFromUser(in);
-        int res;
+        int res = inputFromUser(in);
+        if (res == -1){
+            printf("Error: unable to read the user input\n");
+            freeBuffer(in);
+            freeTable(table);
+            exit(EXIT_FAILURE);
+        }
+        
         if (isCommand(in)) // process as command
-            res processCommand(in, table);
+            res = processCommand(in, table);
         else  // process as SQL statement
             res = processStatement(in, table);
         
