@@ -25,7 +25,7 @@ Table* newTable(){
 }
 
 void freeTable(Table* table){
-    for (int i = 0; table->pages[i]; i++)
+    for (int i = 0; i < TABLE_MAX_PAGES && table->pages[i]; i++)
         free(table->pages[i]);
     free(table);
 }
