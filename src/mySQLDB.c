@@ -1,5 +1,10 @@
 #include "mySQLDB.h"
 
+#define ERR_STRING_TOO_LARGE -2
+#define ERR_ID_NOT_POSITIVE -3
+#define FAILED -1
+#define OK 1
+
 // SQLITE architecture
 // https://www.sqlite.org/zipvfs/doc/trunk/www/howitworks.wiki
 
@@ -8,7 +13,8 @@
  * | int| 32b  | 32b  |
  * thus row size ==
  */
-#define ROW_SIZE        ( sizeof(int) + sizeof(char) * 32 * 2 )
+#define COL_WIDTH 32
+#define ROW_SIZE ( sizeof(int) + sizeof(char) * (COL_WIDTH+1) * 2 )
 
 const uint32_t PAGE_SIZE = 4096;
 const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
@@ -49,12 +55,12 @@ void freeBuffer(inputBuffer* in){
 
 void serializeRow(Row* source, void* target){
     memcpy(target, &(source->id), sizeof(int));
-    memcpy(target + sizeof(int), &(source->col), sizeof(char) * 32 * source->colCount);
+    memcpy(target + sizeof(int), &(source->col), sizeof(char) * (COL_WIDTH+1) * source->colCount);
 }
 
 void deserializeRow(void* source, Row* target){
     memcpy(&(target->id), source, sizeof(int));
-    memcpy(&(target->col), source + sizeof(int), sizeof(char) * 32 * target->colCount);
+    memcpy(&(target->col), source + sizeof(int), sizeof(char) * (COL_WIDTH+1) * target->colCount);
 }
 
 void* indexRow(Table* table, uint32_t row){
@@ -75,7 +81,7 @@ Row* prepareRow(int cols){
     temp->col = (char**)malloc( sizeof(char*) * temp->colCount);
     // adjust space for each col
     for (int i = 0; i < temp->colCount; i++)
-        temp->col[i] = (char*)malloc( sizeof(char) * 32);
+        temp->col[i] = (char*)malloc( sizeof(char) * (COL_WIDTH+1));
     
     return temp;
 }
@@ -89,20 +95,36 @@ void freeRow(Row* row){
 
 int insertRowToTable(inputBuffer* line, Table* table){
     Row* row = prepareRow(2); // 2 coloums required + id column
-    int res = sscanf(line->buffer, "insert %d %s %s",
-                     &row->id, row->col[0], row->col[1]);
     
-    if (res < row->colCount + 1){
+    char* instruction = strtok(line->buffer, " ");
+    char* colId = strtok(NULL, " ");
+    char* col2 = strtok(NULL, " ");
+    char* col3 = strtok(NULL, " ");
+    //int res = sscanf(line->buffer, "insert %d %s %s",
+      //               &row->id, row->col[0], row->col[1]);
+    
+    if (instruction  == NULL || colId == NULL || col2 == NULL || col3 == NULL){
         free(row);
-        return -1;
+        return FAILED;
     }
+    row->id = atoi(colId);
+    if (row->id < 0){
+        free(row);
+        return ERR_ID_NOT_POSITIVE;
+    }
+    if (strlen(col2) > COL_WIDTH || strlen(col3) > COL_WIDTH){
+        free(row);
+        return ERR_STRING_TOO_LARGE;
+    }
+    strcpy(row->col[0], col2);
+    strcpy(row->col[1], col3);
     
     //insert Row To Table
     serializeRow(row, indexRow(table, table->num_rows));
     table->num_rows++;
     
     free(row);
-    return 1;
+    return OK;
     
 }
 
@@ -122,19 +144,19 @@ int selectfromTable(inputBuffer* line, Table* table){
     }
     
     free(row);
-    return 1;
+    return OK;
 }
 
 int inputFromUser(inputBuffer* in){
     ssize_t inBytes = getline(&in->buffer, &in->length, stdin);
     if (inBytes <= 0){ // failed to input
-        return -1;
+        return FAILED;
     }
     
     // remember the trailing newline
     in->inputLength = inBytes - 1;
     in->buffer[inBytes - 1] = '\0';
-    return 1;
+    return OK;
 }
 
 void outputToUser(){
@@ -157,7 +179,7 @@ int processCommand(inputBuffer* cmd, Table* table){
         exit(EXIT_SUCCESS);
     }
     // Todo add more commands
-    return -1;
+    return FAILED;
 }
 
 #define INSERT 1
@@ -169,9 +191,9 @@ int processStatement(inputBuffer* stmt, Table* table){
     else if (strncmp(stmt->buffer, "select", 6) == 0)
         execute(SELECT, stmt, table);
     else
-        return -1;
+        return FAILED;
     
-    return 1;
+    return OK;
 }
 
 void execute(int stmt, inputBuffer* line, Table* table){
@@ -184,15 +206,19 @@ void execute(int stmt, inputBuffer* line, Table* table){
             }
             printf("Inserting...");
             res = insertRowToTable(line, table);
-            if (res == 1)
+            if (res == OK)
                 printf("Successfully executed insert statement.");
+            else if (res == ERR_STRING_TOO_LARGE)
+                printf("Error! Length of string cannot exceed %d.", COL_WIDTH);
+            else if (res == ERR_ID_NOT_POSITIVE)
+                printf("Error! ID is required to be positive");
             else
                 printf("Syntax Error!");
             break;
         case SELECT:
             printf("Selecting...\n");
             res = selectfromTable(line, table);
-            if (res == 1)
+            if (res == OK)
                 printf("Successfully executed select statement.");
             else
                 printf("Sytax Error");

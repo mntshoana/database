@@ -4,6 +4,14 @@ This is only an academic project designed to immitate the inner-workings of a da
 
 To build this project, simply clone this project and then compile it as follows:
 ````
-make
+make all
+````
+To run the database
+````
 bin/mySQLDB.o
 ````
+To run the tests
+````
+bin/test.o
+````
+

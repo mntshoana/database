@@ -1,184 +1,81 @@
-#include <string.h>
-#include <fcntl.h>
-
+#include "test.h"
 #include "bdd-for-c.h"
-#include "../src/mySQLDB.h"
 
-int changedStream;
-
-int replaceStream(){
-    system("echo '' > bin/write.txt"); //  file exists, is empty
-    changedStream = open("bin/write.txt", O_WRONLY); // open a file
-    
-    int backup = dup(STDOUT_FILENO); // make backup of stdout
-    
-    fflush(stdout); //clean everything first
-    
-    dup2(changedStream, STDOUT_FILENO ); // redirect printf() into file
-    return backup;
+void header(char* title){
+    int len = strlen(title) + 18;
+    char* border = (char*)malloc(sizeof(char)* len +1);
+    border[len] = '\0';
+    memset(border, '+', len);
+    printf("\n%s", border);
+    printf("\n...RUNNING: \"%s\"...\n", title);
+    printf("%s\n\n", border);
+    free(border);
 }
-void restoreStream(int backup){
-    fflush(stdout); //clean everything first
-    
-    dup2(backup, STDOUT_FILENO);
-    
-    close(changedStream);
-}
-
-void run(char* script[]){
-    Table* table = newTable();
-    inputBuffer* instruction = initInputBuffer();
-    instruction->buffer = (char*)malloc(255);
-    
-    for (int i = 0 ; ; i++){
+char** run(char* title, char** script){
+    header(title);
+    int backup = replaceStream();
+    char* appPath = "bin/mySQLDB.o";
+    FILE* fp = popen(appPath, "w");
+    for(int i = 0; ; i++){
         if (script[i] == NULL)
             break;
-        strcpy(instruction->buffer, script[i]);
-        instruction->inputLength = strlen(script[i]);
-        instruction->buffer[instruction->inputLength] = '\0';
-        int res;
-        if (isCommand(instruction)) // process as command
-            res = processCommand(instruction, table);
-        else  // process as SQL statement
-            res = processStatement(instruction, table);
         
-        if (res == -1)
-            printf("Error: %s not recognized - \"%s\".\n", isCommand(instruction) ? "Command":"Keyword", instruction->buffer);
-
+        if (script[i+1] == NULL)
+            fprintf( fp, "%s\r", script[i]);
+        else
+            fprintf( fp, "%s\n", script[i]);
     }
-    freeBuffer(instruction);
-    freeTable(table);
+    pclose(fp);
+    restoreStream(backup);
+    return loadFromFile();
+    
 }
 
-char** loadResult(){
-    FILE *file;
-    file = fopen("bin/write.txt", "r");
-    
-    size_t sLine = 1024;
-    char* line = (char*)malloc(sLine);
-    
-    char** result = NULL;
-    for (int i = 0; ; i++){
-        int len = getline(&line, &sLine, file);
-        result = (char**)realloc(result, sizeof(char*) * (i + 1) );
-        if (len < 0){
-            result[i] = NULL;
-            break;
-        }
-    
-        result[i] = (char*)malloc(len+1);
-        strncpy(result[i], line, len-1);
-        result[i][len-1] = '\0';
-    
-    }
-    
-    fclose(file);
-    free(line);
-    
-    return result;
-}
-
-char** append(char*** buff, int idx, char* str, int resize){
-    int len = strlen(str);
-    
-    if (resize == 1)
-        *buff = (char**)realloc(*buff, sizeof(char*) * (idx + 1 + 1) ); // final NULL to signal end of array
-    char** buffer = *buff;
-    buffer[idx] = (char*)realloc(buffer[idx], len+1);
-    strncpy(buffer[idx], str, len);
-    buffer[idx][len] = '\0';
-
-    buffer[idx+1] = NULL;
-    
-    return buffer;
-}
-
-void cleanUp(char** ptr){
-    if (ptr == NULL)
-        return;
-    for (int i = 0; ptr[i] != NULL; i++){
-        free(ptr[i]);
-    }
-    free(ptr);
-}
 
 spec ("main"){
-    
-    //TEST 1
-    it ("STATEMENTS: INSERT and SELECT" ){
-        // PREPARE
-        char* script[] = {
-                    "insert 1 user email@address.com",
-                    "select",
-                    
-                    NULL
-        };
+#define TEST1 "STATEMENTS: INSERT and SELECT"
+    it (TEST1 ){
+        char* script[] = {  "insert 1 user email@address.com",
+                            "select",
+                            ".exit",
+                            NULL };
+        char** result = run(TEST1, script);
         
-        // EXECUTE
-        int backup = replaceStream();
-        run(script);
-        restoreStream(backup);
-        
-        // PREPARE RESULT
-        char** result = loadResult();
         char* expected[] = {
-                        "Inserting...Successfully executed insert statement.",
-                        "Selecting...",
+                        "myDB > Inserting...Successfully executed insert statement.",
+                        "myDB > Selecting...",
                         "1 user email@address.com",
                         "Successfully executed select statement.",
+                        "myDB >",
                         NULL
         };
         
-        // COMPARE
-        printf("Expected:\n");
-        for (int i = 0; ; i++){
-            if (expected[i] == NULL)
-                break;
-            printf("%s\n", expected[i]);
-        }
-        printf("\n");
-        
-        printf("Results:\n");
-        for (int i = 0; ; i++){
-            if (result[i] == NULL)
-                break;
-            printf("%s\n", result[i]);
-        }
-        printf("\n");
-        
+        show(expected, result);
+        // Compare all
         for (int i = 0; ; i++){
             if (result[i] == NULL || expected[i] == NULL)
                 break;
             int len = strlen(result[i]);
             check(strncmp(result[i], expected[i], len) == 0);
-            
         }
-        cleanUp(result);
+        
+        freeBuff(result);
     }
 
-    //TEST 2
-    it ("ERROR CHECK: Table Full"){
-        // PREPARE
-        char* intr = (char*)malloc(255);
-        char** script = NULL;
+#define TEST2 "ERROR CHECK: Table Full"
+    it (TEST2){
+        const int count = 6002;
+        char** script = (char**)malloc(sizeof(char*) * (count + 1) ); // final NULL
+        char* line = (char*)malloc(255);
         int i;
-        const int count = 6001;
-        
-        script = (char**)malloc(sizeof(char*) * (count + 1) ); // final NULL
-        for ( i = 1; i <= count; i++){
-            sprintf(intr, "insert %d user%d person%d@example.com", i, i, i);
-            append(&script, i-1, intr, 0);
+        for ( i = 1; i < count; i++){
+            sprintf(line, "insert %d user%d person%d@example.com", i, i, i);
+            appendBuf(&script, i-1, line);
         }
-        
-        // EXECUTE
-        int backup = replaceStream();
-        run(script);
-        restoreStream(backup);
-
-        // PREPARE RESULT
-        char** result = loadResult();
+        appendBuf(&script, i-1, ".exit");
+        char** result = run(TEST2, script);
         char* expected[] = {
-                        "Error! Table is already full",
+                        "myDB > Error! Table is already full",
                         NULL
         };
         
@@ -187,7 +84,7 @@ spec ("main"){
             if (result[i] == NULL)
                 break;
         }
-        i -= 1;
+        i -= 2; // last == NULL; last -1 == "DB >" which is the exit line
         printf("Expected:\n");
         printf("%s\n", expected[0]);
         printf("\n");
@@ -199,8 +96,100 @@ spec ("main"){
         int len = strlen(result[0]);
         check(strncmp(result[i], expected[0], len) == 0);
         
-        cleanUp(result);
-        cleanUp(script);
+        freeBuff(result);
+        freeBuff(script);
     }
     
+#define A_32 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+#define TEST3 "INSERTING STRINGS OF MAXIMUM LENGTH"
+    it(TEST3){
+        char* script[] = {
+            "insert 1 "A_32" "A_32,
+            "select",
+            ".exit",
+            NULL
+        };
+        char** result = run(TEST3, script);
+
+        char* expected[] = {
+                        "myDB > Inserting...Successfully executed insert statement.",
+                        "myDB > Selecting...",
+                        "1 "A_32" "A_32,
+                        "Successfully executed select statement.",
+                        "myDB >",
+                        NULL
+        };
+        
+        show(expected, result);
+        // Compare all
+        for (int i = 0; ; i++){
+            if (result[i] == NULL || expected[i] == NULL)
+                break;
+            int len = strlen(result[i]);
+            check(strncmp(result[i], expected[i], len) == 0);
+        }
+        
+        freeBuff(result);
+    }
+    
+#define A_33 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+#define TEST3 "ERROR CHECK: STRINGS OVER MAXIMUM LENGTH"
+    it(TEST3){
+        char* script[] = {
+            "insert 1 "A_33" "A_33,
+            "select",
+            ".exit",
+            NULL
+        };
+        char** result = run(TEST3, script);
+
+        char* expected[] = {
+                        "myDB > Inserting...Error! Length of string cannot exceed 32.",
+                        "myDB > Selecting...",
+                        "Successfully executed select statement.",
+                        "myDB > ",
+                        NULL
+        };
+        
+        show(expected, result);
+        // Compare all
+        for (int i = 0; ; i++){
+            if (result[i] == NULL || expected[i] == NULL)
+                break;
+            int len = strlen(result[i]);
+            check(strncmp(result[i], expected[i], len) == 0);
+        }
+        
+        freeBuff(result);
+    }
+    
+#define TEST4 "ERROR CHECK: ID MUST NOT BE NEGATIVE"
+    it(TEST4){
+        char* script[] = {
+            "insert -1 this andThat",
+            "select",
+            ".exit",
+            NULL
+        };
+        char** result = run(TEST4, script);
+
+        char* expected[] = {
+                        "myDB > Inserting...Error! ID is required to be positive",
+                        "myDB > Selecting...",
+                        "Successfully executed select statement.",
+                        "myDB > ",
+                        NULL
+        };
+        
+        show(expected, result);
+        // Compare all
+        for (int i = 0; ; i++){
+            if (result[i] == NULL || expected[i] == NULL)
+                break;
+            int len = strlen(result[i]);
+            check(strncmp(result[i], expected[i], len) == 0);
+        }
+        
+        freeBuff(result);
+    }
 }
