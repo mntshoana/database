@@ -11,10 +11,16 @@ void header(char* title){
     printf("%s\n\n", border);
     free(border);
 }
-char** run(char* title, char** script){
+char** run(char* title, char** script, bool withArgs){
     header(title);
     int backup = replaceStream();
-    char* appPath = "bin/mySQLDB.o";
+    char* appPath;
+    if (withArgs){
+       appPath  = "bin/mySQLDB.o" " bin/default";
+       remove ("bin/default.db");
+    }
+    else
+       appPath = "bin/mySQLDB.o";
     FILE* fp = popen(appPath, "w");
     for(int i = 0; ; i++){
         if (script[i] == NULL)
@@ -33,13 +39,30 @@ char** run(char* title, char** script){
 
 
 spec ("main"){
+    static int test_count;
+    static int tests_failed;
+    
+    before() {
+        test_count = 0;
+        tests_failed = 0;
+    }
+    
+    after(){
+        printf("%i tests run. %i failed.\n", test_count, tests_failed);
+    }
+    
+    before_each() {
+        ++test_count;
+        ++tests_failed;
+    }
+    
 #define TEST1 "STATEMENTS: INSERT and SELECT"
     it (TEST1 ){
         char* script[] = {  "insert 1 user email@address.com",
                             "select",
                             ".exit",
                             NULL };
-        char** result = run(TEST1, script);
+        char** result = run(TEST1, script, true);
         
         char* expected[] = {
                         "myDB > Inserting...Successfully executed insert statement.",
@@ -60,6 +83,7 @@ spec ("main"){
         }
         
         freeBuff(result);
+        tests_failed--;
     }
 
 #define TEST2 "ERROR CHECK: Table Full"
@@ -73,7 +97,7 @@ spec ("main"){
             appendBuf(&script, i-1, line);
         }
         appendBuf(&script, i-1, ".exit");
-        char** result = run(TEST2, script);
+        char** result = run(TEST2, script, true);
         char* expected[] = {
                         "myDB > Error! Table is already full",
                         NULL
@@ -98,6 +122,7 @@ spec ("main"){
         
         freeBuff(result);
         freeBuff(script);
+        tests_failed--;
     }
     
 #define A_32 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -109,7 +134,7 @@ spec ("main"){
             ".exit",
             NULL
         };
-        char** result = run(TEST3, script);
+        char** result = run(TEST3, script, true);
 
         char* expected[] = {
                         "myDB > Inserting...Successfully executed insert statement.",
@@ -130,6 +155,7 @@ spec ("main"){
         }
         
         freeBuff(result);
+        tests_failed--;
     }
     
 #define A_33 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -141,7 +167,7 @@ spec ("main"){
             ".exit",
             NULL
         };
-        char** result = run(TEST3, script);
+        char** result = run(TEST3, script, true);
 
         char* expected[] = {
                         "myDB > Inserting...Error! Length of string cannot exceed 32.",
@@ -161,6 +187,7 @@ spec ("main"){
         }
         
         freeBuff(result);
+        tests_failed--;
     }
     
 #define TEST4 "ERROR CHECK: ID MUST NOT BE NEGATIVE"
@@ -171,7 +198,7 @@ spec ("main"){
             ".exit",
             NULL
         };
-        char** result = run(TEST4, script);
+        char** result = run(TEST4, script, true);
 
         char* expected[] = {
                         "myDB > Inserting...Error! ID is required to be positive",
@@ -191,5 +218,6 @@ spec ("main"){
         }
         
         freeBuff(result);
+        tests_failed--;
     }
 }

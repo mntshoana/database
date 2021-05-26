@@ -6,6 +6,10 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 typedef struct {
     char* buffer;
     size_t length;
@@ -20,12 +24,22 @@ typedef struct {
 
 #define TABLE_MAX_PAGES 100
 typedef struct {
-    uint32_t num_rows;
+    int fileDescriptor;
+    uint32_t fileLength;
     void* pages[TABLE_MAX_PAGES];
+} Pager;
+
+typedef struct {
+    uint32_t num_rows;
+    Pager* pager;
 }Table;
 
-Table* newTable();
-void freeTable(Table* table);
+Pager* initPager(const char* file);
+void* getPage(Pager* pager, uint32_t pgNr);
+
+Table* openDB(const char* file);
+void updateDisk(Pager* pager, uint32_t pgNr, uint32_t size);
+void closeDB(Table* table);
 
 inputBuffer* initInputBuffer();
 void freeBuffer(inputBuffer* in);
@@ -40,13 +54,14 @@ void freeRow(Row* row);
 
 int insertRowToTable(inputBuffer* line, Table* table);
 int selectfromTable(inputBuffer* line, Table* table);
+int createTable(inputBuffer* line, Table** table);
 
 int inputFromUser(inputBuffer* in);
 void outputToUser();
 
 bool isCommand(inputBuffer* in);
-int processCommand(inputBuffer* cmd, Table* table);
+int processCommand(inputBuffer* cmd, Table** tablePtr);
 
-int processStatement(inputBuffer* stmt, Table* table);
-void execute(int stmt, inputBuffer* line, Table* table);
+int processStatement(inputBuffer* stmt, Table** tablePtr);
+void execute(int stmt, inputBuffer* line, Table** table);
 #endif
