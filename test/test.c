@@ -1,7 +1,11 @@
 #include "test.h"
 #include "bdd-for-c.h"
 
+#define RESTART -1
 void header(char* title){
+    if (title == "")
+        return;
+    
     int len = strlen(title) + 18;
     char* border = (char*)malloc(sizeof(char)* len +1);
     border[len] = '\0';
@@ -16,15 +20,34 @@ char** run(char* title, char** script, bool withArgs){
     int backup = replaceStream();
     char* appPath;
     if (withArgs){
-       appPath  = "bin/mySQLDB.o" " bin/default";
+       appPath  = "bin/mySQLDB.o bin/default.db";
        remove ("bin/default.db");
     }
     else
        appPath = "bin/mySQLDB.o";
+    
     FILE* fp = popen(appPath, "w");
+    if (fp == NULL || fp < 0){
+        printf("Error: popen %d", fp);
+        restoreStream(backup);
+        char** empty = {NULL};
+        return loadFromFile();
+    }
+
     for(int i = 0; ; i++){
         if (script[i] == NULL)
             break;
+        
+        if (script[i] == RESTART){
+            pclose(fp);
+            fp = popen(appPath, "w");
+            if (fp == NULL || fp < 0){
+                printf("Error: popen %d", fp);
+                restoreStream(backup);
+                return loadFromFile();
+            }
+            continue;
+        }
         
         if (script[i+1] == NULL)
             fprintf( fp, "%s\r", script[i]);
@@ -39,22 +62,7 @@ char** run(char* title, char** script, bool withArgs){
 
 
 spec ("main"){
-    static int test_count;
-    static int tests_failed;
     
-    before() {
-        test_count = 0;
-        tests_failed = 0;
-    }
-    
-    after(){
-        printf("%i tests run. %i failed.\n", test_count, tests_failed);
-    }
-    
-    before_each() {
-        ++test_count;
-        ++tests_failed;
-    }
     
 #define TEST1 "STATEMENTS: INSERT and SELECT"
     it (TEST1 ){
@@ -83,7 +91,7 @@ spec ("main"){
         }
         
         freeBuff(result);
-        tests_failed--;
+
     }
 
 #define TEST2 "ERROR CHECK: Table Full"
@@ -122,7 +130,6 @@ spec ("main"){
         
         freeBuff(result);
         freeBuff(script);
-        tests_failed--;
     }
     
 #define A_32 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -155,19 +162,18 @@ spec ("main"){
         }
         
         freeBuff(result);
-        tests_failed--;
     }
     
 #define A_33 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-#define TEST3 "ERROR CHECK: STRINGS OVER MAXIMUM LENGTH"
-    it(TEST3){
+#define TEST4 "ERROR CHECK: STRINGS OVER MAXIMUM LENGTH"
+    it(TEST4){
         char* script[] = {
             "insert 1 "A_33" "A_33,
             "select",
             ".exit",
             NULL
         };
-        char** result = run(TEST3, script, true);
+        char** result = run(TEST4, script, true);
 
         char* expected[] = {
                         "myDB > Inserting...Error! Length of string cannot exceed 32.",
@@ -187,18 +193,17 @@ spec ("main"){
         }
         
         freeBuff(result);
-        tests_failed--;
     }
     
-#define TEST4 "ERROR CHECK: ID MUST NOT BE NEGATIVE"
-    it(TEST4){
+#define TEST5 "ERROR CHECK: ID MUST NOT BE NEGATIVE"
+    it(TEST5){
         char* script[] = {
             "insert -1 this andThat",
             "select",
             ".exit",
             NULL
         };
-        char** result = run(TEST4, script, true);
+        char** result = run(TEST5, script, true);
 
         char* expected[] = {
                         "myDB > Inserting...Error! ID is required to be positive",
@@ -218,6 +223,48 @@ spec ("main"){
         }
         
         freeBuff(result);
-        tests_failed--;
     }
+    
+#define TEST6 "CHECK: DATA PERSISTS AFTER CLOSING CONNECTION"
+    it(TEST6){
+        char* script[] = {
+            "create table bin/persist.db",
+            "insert 1 this andThat",
+            ".exit",
+            RESTART,
+            ".open bin/persist.db",
+            "select",
+            ".exit",
+            NULL
+        };
+        
+        char** result1 = run(TEST6, script, false);
+
+        char* expected1[] = {
+                        "myDB > Creating...",
+                        "Successfully created table",
+                        "myDB > Inserting...Successfully executed insert statement.",
+                        "myDB > ",
+                        "myDB > Inserting...Error! ID is required to be positive",
+                        "myDB > Selecting...",
+                        "Successfully executed select statement.",
+                        "myDB > ",
+                        NULL
+        };
+        
+        show(expected1, result1);
+        // Compare all
+        for (int i = 0; ; i++){
+            if (result1[i] == NULL || expected1[i] == NULL){
+                if (result1[i] != NULL || expected1[i] != NULL)
+                    check(false, "Results and Expected arrays are not the same size");
+                break;
+            }
+            int len = strlen(result1[i]);
+            check(strncmp(result1[i], expected1[i], len) == 0);
+        }
+        
+        freeBuff(result1);
+    }
+    
 }

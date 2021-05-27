@@ -154,13 +154,25 @@ void freeBuffer(inputBuffer* in){
 
 
 void serializeRow(Row* source, void* target){
-    memcpy(target, &(source->id), sizeof(int));
-    memcpy(target + sizeof(int), &(source->col), sizeof(char) * (COL_WIDTH+1) * source->colCount);
+    memcpy( target,
+            &source->id,
+            sizeof(int));
+    for (int i = 0; i < source->colCount; i++){
+        memcpy( target +sizeof(int) +( (COL_WIDTH+1) *i),
+                &source->col[i],
+                sizeof(char) * (COL_WIDTH+1) );
+    }
 }
 
 void deserializeRow(void* source, Row* target){
-    memcpy(&(target->id), source, sizeof(int));
-    memcpy(&(target->col), source + sizeof(int), sizeof(char) * (COL_WIDTH+1) * target->colCount);
+    memcpy(&target->id,
+           source,
+           sizeof(int));
+    for (int i = 0; i < target->colCount; i++){
+        memcpy(&target->col[i],
+               source +sizeof(int) +( (COL_WIDTH+1) *i),
+               sizeof(char) * (COL_WIDTH+1) );
+    }
 }
 
 void* indexRow(Table* table, uint32_t row){
@@ -228,7 +240,7 @@ int insertRowToTable(inputBuffer* line, Table* table){
 
 int selectfromTable(inputBuffer* line, Table* table){
     Row* row = prepareRow(2); // 2 columns requred + id coloum
-    int res = sscanf(line->buffer, "select ...\n"); // Todo
+    int res = sscanf(line->buffer, "select \n"); // Todo
     
     if (res < row->colCount + 1){
     //    free(row);
@@ -309,7 +321,7 @@ int processCommand(inputBuffer* cmd, Table** tablePtr){
         if (table != NULL){
             closeDB(table); // Todo proper way
         }
-        
+        printf("Openning...\n");
         *tablePtr = openDB(line);
         free(line);
         return OK;
