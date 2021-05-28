@@ -155,11 +155,11 @@ void freeBuffer(inputBuffer* in){
 
 void serializeRow(Row* source, void* target){
     memcpy( target,
-            &source->id,
+            &( source->id ),
             sizeof(int));
     for (int i = 0; i < source->colCount; i++){
         memcpy( target +sizeof(int) +( (COL_WIDTH+1) *i),
-                &source->col[i],
+                source->col[i],
                 sizeof(char) * (COL_WIDTH+1) );
     }
 }
@@ -169,7 +169,7 @@ void deserializeRow(void* source, Row* target){
            source,
            sizeof(int));
     for (int i = 0; i < target->colCount; i++){
-        memcpy(&target->col[i],
+        memcpy(target->col[i],
                source +sizeof(int) +( (COL_WIDTH+1) *i),
                sizeof(char) * (COL_WIDTH+1) );
     }
@@ -210,8 +210,6 @@ int insertRowToTable(inputBuffer* line, Table* table){
     char* colId = strtok(NULL, " ");
     char* col2 = strtok(NULL, " ");
     char* col3 = strtok(NULL, " ");
-    //int res = sscanf(line->buffer, "insert %d %s %s",
-      //               &row->id, row->col[0], row->col[1]);
     
     if (instruction  == NULL || colId == NULL || col2 == NULL || col3 == NULL){
         free(row);
@@ -243,8 +241,7 @@ int selectfromTable(inputBuffer* line, Table* table){
     int res = sscanf(line->buffer, "select \n"); // Todo
     
     if (res < row->colCount + 1){
-    //    free(row);
-    //    return -1;
+        // bcoz still need to do above line
     }
     
     //retrieve Rows from Table

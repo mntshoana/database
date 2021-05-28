@@ -227,6 +227,8 @@ spec ("main"){
     
 #define TEST6 "CHECK: DATA PERSISTS AFTER CLOSING CONNECTION"
     it(TEST6){
+        remove("bin/persist.db");
+        
         char* script[] = {
             "create table bin/persist.db",
             "insert 1 this andThat",
@@ -244,9 +246,9 @@ spec ("main"){
                         "myDB > Creating...",
                         "Successfully created table",
                         "myDB > Inserting...Successfully executed insert statement.",
-                        "myDB > ",
-                        "myDB > Inserting...Error! ID is required to be positive",
+                        "myDB > myDB > Openning...",
                         "myDB > Selecting...",
+                        "1 this andThat",
                         "Successfully executed select statement.",
                         "myDB > ",
                         NULL
@@ -266,5 +268,5 @@ spec ("main"){
         
         freeBuff(result1);
     }
-    
+
 }
