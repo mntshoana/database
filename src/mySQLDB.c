@@ -56,7 +56,7 @@ void* getPage(Pager* pager, uint32_t pgNr){
             pageCount++; //  to NOT chop off end of page
         
         if (pgNr <= pageCount) {
-            lseek(pager->fileDescriptor, pageCount * PAGE_SIZE, SEEK_SET);
+            lseek(pager->fileDescriptor, (pageCount-1) * PAGE_SIZE, SEEK_SET);
             ssize_t bytes = read(pager->fileDescriptor, page, PAGE_SIZE);
             if (bytes == -1){
                 printf("Error: Couldn't read file: %d\n", errno);
@@ -165,7 +165,7 @@ void serializeRow(Row* source, void* target){
 }
 
 void deserializeRow(void* source, Row* target){
-    memcpy(&target->id,
+    memcpy(&( target->id ),
            source,
            sizeof(int));
     for (int i = 0; i < target->colCount; i++){
@@ -242,6 +242,7 @@ int selectfromTable(inputBuffer* line, Table* table){
     
     if (res < row->colCount + 1){
         // bcoz still need to do above line
+        // let it search whole table for now
     }
     
     //retrieve Rows from Table
