@@ -137,6 +137,27 @@ void closeDB(Table* table){
     free(table);
 }
 
+TableCursor* tableStart(Table* table){
+    TableCursor* cursor = (TableCursor*)malloc(sizeof(TableCursor));
+    cursor->table = table;
+    cursor->row = 0;
+    cursor->endOfTable  = (table->num_rows == 0);
+    return cursor;
+}
+
+TableCursor* tableEnd(Table* table){
+    TableCursor* cursor = (TableCursor*)malloc(sizeof(TableCursor));
+    cursor->table = table;
+    cursor->row = table->num_rows ;
+    cursor->endOfTable  = true;
+    return cursor;
+}
+
+void next(TableCursor* cursor){
+    cursor->row++;
+    if (cursor->row >= cursor->table->num_rows)
+        cursor->endOfTable = true;
+}
 inputBuffer* initInputBuffer(){
     inputBuffer* buffer = (inputBuffer*)malloc(sizeof(inputBuffer));
     buffer->buffer = NULL;
@@ -175,9 +196,10 @@ void deserializeRow(void* source, Row* target){
     }
 }
 
-void* indexRow(Table* table, uint32_t row){
+void* indexRow(TableCursor* cursor){
+    uint32_t row = cursor->row;
     uint32_t pgNr  = row / ROWS_PER_PAGE;
-    void* page = getPage(table->pager, pgNr);
+    void* page = getPage(cursor->table->pager, pgNr);
     
     uint32_t offset = (row % ROWS_PER_PAGE) * ROW_SIZE;
     return page + offset;
@@ -205,6 +227,7 @@ void freeRow(Row* row){
 
 int insertRowToTable(inputBuffer* line, Table* table){
     Row* row = prepareRow(2); // 2 coloums required + id column
+    TableCursor* cursor = tableEnd(table);
     
     char* instruction = strtok(line->buffer, " ");
     char* colId = strtok(NULL, " ");
@@ -228,16 +251,20 @@ int insertRowToTable(inputBuffer* line, Table* table){
     strcpy(row->col[1], col3);
     
     //insert Row To Table
-    serializeRow(row, indexRow(table, table->num_rows));
+    serializeRow(row, indexRow(cursor));
     table->num_rows++;
     
     free(row);
+    free(cursor);
+                 
     return OK;
     
 }
 
 int selectfromTable(inputBuffer* line, Table* table){
     Row* row = prepareRow(2); // 2 columns requred + id coloum
+    TableCursor* cursor  = tableStart(table);
+    
     int res = sscanf(line->buffer, "select \n"); // Todo
     
     if (res < row->colCount + 1){
@@ -246,12 +273,14 @@ int selectfromTable(inputBuffer* line, Table* table){
     }
     
     //retrieve Rows from Table
-    for (uint32_t i = 0; i < table->num_rows; i++){
-        deserializeRow(indexRow(table, i), row);
+    while (!(cursor->endOfTable)) {
+        deserializeRow(indexRow(cursor), row);
         printf("%d %s %s\n", row->id, row->col[0], row->col[1]);
+        next(cursor);
     }
     
     free(row);
+    free(cursor);
     return OK;
 }
 

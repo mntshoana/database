@@ -49,7 +49,7 @@ char** run(char* title, char** script, bool withArgs){
             continue;
         }
         
-        if (script[i+1] == NULL)
+        if (script[i+1] == NULL || script[i+1] == RESTART)
             fprintf( fp, "%s\r", script[i]);
         else
             fprintf( fp, "%s\n", script[i]);
@@ -62,7 +62,26 @@ char** run(char* title, char** script, bool withArgs){
 
 
 spec ("main"){
+    static int count;
+    static int failed;
     
+    after(){
+        printf("%i tests run. %i tests failed\n", count, failed);
+    }
+    
+    before(){
+        count = 0;
+        failed = 0;
+    }
+    
+    before_each(){
+        count++;
+        failed++;
+    }
+    
+    after_each(){
+        failed--;
+    }
     
 #define TEST1 "STATEMENTS: INSERT and SELECT"
     it (TEST1 ){

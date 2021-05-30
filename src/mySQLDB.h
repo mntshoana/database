@@ -34,6 +34,12 @@ typedef struct {
     Pager* pager;
 }Table;
 
+typedef struct {
+    Table* table;
+    uint32_t row;
+    bool endOfTable;
+} TableCursor;
+
 Pager* initPager(const char* file);
 void* getPage(Pager* pager, uint32_t pgNr);
 
@@ -41,13 +47,18 @@ Table* openDB(const char* file);
 void updateDisk(Pager* pager, uint32_t pgNr, uint32_t size);
 void closeDB(Table* table);
 
+TableCursor* tableStart(Table* table);
+TableCursor* tableEnd(Table* table);
+
+void next(TableCursor* cursor);
+
 inputBuffer* initInputBuffer();
 void freeBuffer(inputBuffer* in);
 
 void serializeRow(Row* source, void* target);
 void deserializeRow(void* source, Row* target);
 
-void* indexRow(Table* table, uint32_t row);
+void* indexRow(TableCursor* cursor);
 
 Row* prepareRow(int cols);
 void freeRow(Row* row);
