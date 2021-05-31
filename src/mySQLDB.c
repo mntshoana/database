@@ -16,7 +16,6 @@
 #define COL_WIDTH 32
 #define ROW_SIZE ( sizeof(int) + sizeof(char) * (COL_WIDTH+1) * 2 )
 
-const uint32_t PAGE_SIZE = 4096;
 const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
 const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 

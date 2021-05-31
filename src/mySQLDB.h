@@ -22,6 +22,7 @@ typedef struct {
     int colCount; // number of coloumns (excl id)
 }Row;
 
+#define PAGE_SIZE 4096
 #define TABLE_MAX_PAGES 100
 typedef struct {
     int fileDescriptor;
