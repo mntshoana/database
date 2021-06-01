@@ -1,3 +1,4 @@
+
 #ifndef STORAGE_HEADER
 #define STORAGE_HEADER
 
@@ -9,39 +10,48 @@ typedef enum {
 }NodeType;
 
 // Base Node
-const uint32_t NodeTypeSize = sizeof(uint8_t);
-const uint32_t IsRootSize = sizeof(uint8_t);
-const uint32_t ParentPtrSize = sizeof(uint32_t);
-const uint8_t BaseNodeSize = NodeTypeSize + IsRootSize + ParentPtrSize;
+static const uint32_t NodeTypeSize = sizeof(uint8_t);
+static const uint32_t IsRootSize = sizeof(uint8_t);
+static const uint32_t ParentPtrSize = sizeof(uint32_t);
+static const uint8_t BaseNodeSize = NodeTypeSize + IsRootSize + ParentPtrSize;
 
-const uint32_t IsRootOffset = NodeTypeSize;
-const uint32_t ParentPointOffset = NodeTypeSize + IsRootSize;
+static const uint32_t IsRootOffset = NodeTypeSize;
+static const uint32_t ParentPointOffset = NodeTypeSize + IsRootSize;
 
 
 // Leaf Node
-const uint32_t LeafCellCountSize = sizeof(uint32_t);
-const uint32_t LeafHeaderSize =  BaseNodeSize + LeafCellCountSize;
+static const uint32_t LeafCellCountSize = sizeof(uint32_t);
+static const uint32_t LeafHeaderSize =  BaseNodeSize + LeafCellCountSize;
 // Leaf Node Body
-const uint32_t LeafKeySize = sizeof(uint32_t);
-const uint32_t LeafValueSize = LeafKeySize;
-const uint32_t LeafCellSize = LeafKeySize + LeafValueSize;
+static const uint32_t LeafKeySize = sizeof(uint32_t);
+static const uint32_t LeafValueSize = ROW_SIZE;
+static const uint32_t LeafCellSize = LeafKeySize + LeafValueSize;
 
-const uint32_t LeafCellCountOffset = BaseNodeSize;
-const uint32_t LeafValueOffset = LeafKeySize;
-
-const uint32_t LeafAllocation = PAGE_SIZE - LeafHeaderSize;
-const uint32_t LeafMaxCells = LeafAllocation / LeafCellSize;
+static const uint32_t LeafCellCountOffset = BaseNodeSize;
+static const uint32_t LeafValueOffset = LeafKeySize;
+ 
+static const uint32_t LeafAllocation = PAGE_SIZE - LeafHeaderSize;
+static const uint32_t LeafMaxCells = LeafAllocation / LeafCellSize;
 
 // Note: B = byte
+// Leaf node structure will involve...
 //
-//---nodeType[1B] ---|---isRoot[1B]---|---parentPtr[4B]---|
-//---cellCount[4B]---|
-//------key[4B]------|---value[293B]---|
-//----... more keys and values ...-----|
-//-- Total 13 keys and values[3861B] --|
-//-- wasted space: 4096 - (1+1+4+4+3861)
-//--             : 4096 - 3871
-//--             : 225 bytes wasted from page size
+//---nodeType[1B] ---|---isRoot[1B]---|---parentPtr[4B]---|...
+//---cellCount[4B]---|...
+//------key[4B]------|---value[66B]---|... // change value to 293B in future
+//----... more keys and values ...----|...
+//-- Total 58 keys and values[4060B]--|
+//------------------------------------| // all packed into 4096 bytes (one page size)
+//-- wasted space: 4096 - (1+1+4+4+4060)
+//--             : 4096 - 4070
+//--             : 26 bytes wasted from page size
 
-uint32_t* leafNode;
+uint32_t* getLeafCellCount(void* node);
+void*     getLeafCell(void* node, uint32_t index);
+uint32_t* getLeafKey(void* node, uint32_t index);
+void*     getLeafValue(void* node, uint32_t index);
+
+void      initLeafNode(void* node); // reset cell count to zero
+
+void      insertLeaf(TableCursor* cursor, uint32_t key, Row* value);
 #endif

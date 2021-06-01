@@ -92,7 +92,8 @@ spec ("main"){
         char** result = run(TEST1, script, true);
         
         char* expected[] = {
-                        "myDB > Inserting...Successfully executed insert statement.",
+                        "myDB > Inserting...",
+                        "Successfully executed insert statement.",
                         "myDB > Selecting...",
                         "1 user email@address.com",
                         "Successfully executed select statement.",
@@ -126,7 +127,7 @@ spec ("main"){
         appendBuf(&script, i-1, ".exit");
         char** result = run(TEST2, script, true);
         char* expected[] = {
-                        "myDB > Error! Table is already full",
+                        "Error! Table is already full",
                         NULL
         };
         
@@ -163,7 +164,8 @@ spec ("main"){
         char** result = run(TEST3, script, true);
 
         char* expected[] = {
-                        "myDB > Inserting...Successfully executed insert statement.",
+                        "myDB > Inserting...",
+                        "Successfully executed insert statement.",
                         "myDB > Selecting...",
                         "1 "A_32" "A_32,
                         "Successfully executed select statement.",
@@ -195,7 +197,8 @@ spec ("main"){
         char** result = run(TEST4, script, true);
 
         char* expected[] = {
-                        "myDB > Inserting...Error! Length of string cannot exceed 32.",
+                        "myDB > Inserting...",
+                        "Error! Length of string cannot exceed 32.",
                         "myDB > Selecting...",
                         "Successfully executed select statement.",
                         "myDB > ",
@@ -225,7 +228,8 @@ spec ("main"){
         char** result = run(TEST5, script, true);
 
         char* expected[] = {
-                        "myDB > Inserting...Error! ID is required to be positive",
+                        "myDB > Inserting...",
+                        "Error! ID is required to be positive",
                         "myDB > Selecting...",
                         "Successfully executed select statement.",
                         "myDB > ",
@@ -264,7 +268,8 @@ spec ("main"){
         char* expected1[] = {
                         "myDB > Creating...",
                         "Successfully created table",
-                        "myDB > Inserting...Successfully executed insert statement.",
+                        "myDB > Inserting...",
+                        "Successfully executed insert statement.",
                         "myDB > myDB > Openning...",
                         "myDB > Selecting...",
                         "1 this andThat",

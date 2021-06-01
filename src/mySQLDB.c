@@ -1,23 +1,12 @@
 #include "mySQLDB.h"
+#include "storage.h"
 
-#define ERR_STRING_TOO_LARGE -2
+#define ERR_TABLE_FULL -4
 #define ERR_ID_NOT_POSITIVE -3
+#define ERR_STRING_TOO_LARGE -2
 #define FAILED -1
 #define OK 1
 
-// SQLITE architecture
-// https://www.sqlite.org/zipvfs/doc/trunk/www/howitworks.wiki
-
-/*
- * | id | col1 | col2 |
- * | int| 32b  | 32b  |
- * thus row size ==
- */
-#define COL_WIDTH 32
-#define ROW_SIZE ( sizeof(int) + sizeof(char) * (COL_WIDTH+1) * 2 )
-
-const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
-const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
 
 Pager* initPager(const char* file){
     // Initialize pager
@@ -33,6 +22,12 @@ Pager* initPager(const char* file){
     Pager* pager = (Pager*)malloc(sizeof(Pager));
     pager->fileDescriptor = fd;
     pager->fileLength = len;
+    pager->pageCount = (len / PAGE_SIZE);
+    
+    if (len % PAGE_SIZE != 0){
+        printf("Db file is not whole. File corrupted.\n");
+        exit(EXIT_FAILURE);
+    }
     
     for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++){
         pager->pages[i] = NULL;
@@ -66,6 +61,9 @@ void* getPage(Pager* pager, uint32_t pgNr){
         pager->pages[pgNr] = page;
     }
     
+    if (pgNr >= pager->pageCount)
+        pager->pageCount = pgNr +1;
+    
     return pager->pages[pgNr];
 }
 
@@ -73,12 +71,18 @@ Table* openDB(const char* file){
     // Initialize table
     Table* table = malloc(sizeof(Table));
     table->pager = initPager(file);
-    table->num_rows = table->pager->fileLength / ROW_SIZE;
+    table->rootPage = 0;
+    
+    if (table->pager->pageCount == 0){
+        // Empty, initialize page 0 as leaf
+        void* root = getPage(table->pager, 0);
+        initLeafNode(root);
+    }
     
     return table;
 }
 
-void updateDisk(Pager* pager, uint32_t pgNr, uint32_t size){
+void updateDisk(Pager* pager, uint32_t pgNr){
     if (pager->pages[pgNr] == NULL){
         printf("Error: Attempting to store a null page.\n");
         exit(EXIT_FAILURE);
@@ -90,7 +94,7 @@ void updateDisk(Pager* pager, uint32_t pgNr, uint32_t size){
         exit(EXIT_FAILURE);
     }
     
-    ssize_t bytes  = write(pager->fileDescriptor, pager->pages[pgNr], size);
+    ssize_t bytes  = write(pager->fileDescriptor, pager->pages[pgNr], PAGE_SIZE);
     
     if (bytes == -1){
         printf("Error: Failed to write to disk - %d\n", errno);
@@ -100,23 +104,13 @@ void updateDisk(Pager* pager, uint32_t pgNr, uint32_t size){
 
 void closeDB(Table* table){
     Pager* pager = table->pager;
-    size_t count = table->num_rows / ROWS_PER_PAGE;
-    for (size_t i = 0; i < count; i++){
+    for (size_t i = 0; i < pager->pageCount; i++){
         if (pager->pages[i] == NULL)
             continue;
         
-        updateDisk(pager, i, PAGE_SIZE);
+        updateDisk(pager, i);
         free(pager->pages[i]);
         pager->pages[i] = NULL;
-    }
-    
-    uint32_t remainder = table->num_rows % ROWS_PER_PAGE;
-    if (remainder > 0){
-        if (pager->pages[count] != NULL){
-            updateDisk(pager, count, remainder * ROW_SIZE);
-            free(pager->pages[count]);
-            pager->pages[count] = NULL;
-        }
     }
     
     int res = close(pager->fileDescriptor);
@@ -139,22 +133,32 @@ void closeDB(Table* table){
 TableCursor* tableStart(Table* table){
     TableCursor* cursor = (TableCursor*)malloc(sizeof(TableCursor));
     cursor->table = table;
-    cursor->row = 0;
-    cursor->endOfTable  = (table->num_rows == 0);
+    cursor->cellNr = 0;
+    cursor->pgNr = table->rootPage;
+    
+    void* root = getPage(table->pager, table->rootPage);
+    cursor->endOfTable  = (*getLeafCellCount(root) == 0);
+    
     return cursor;
 }
 
 TableCursor* tableEnd(Table* table){
     TableCursor* cursor = (TableCursor*)malloc(sizeof(TableCursor));
     cursor->table = table;
-    cursor->row = table->num_rows ;
+    cursor->pgNr = table->rootPage;
+    
+    void* root = getPage(table->pager, table->rootPage);
+    cursor->cellNr = *getLeafCellCount(root);
+    
     cursor->endOfTable  = true;
     return cursor;
 }
 
 void next(TableCursor* cursor){
-    cursor->row++;
-    if (cursor->row >= cursor->table->num_rows)
+    void* node = getPage(cursor->table->pager, cursor->pgNr);
+    cursor->cellNr++;
+    
+    if (cursor->cellNr >= *getLeafCellCount(node))
         cursor->endOfTable = true;
 }
 inputBuffer* initInputBuffer(){
@@ -195,13 +199,10 @@ void deserializeRow(void* source, Row* target){
     }
 }
 
-void* indexRow(TableCursor* cursor){
-    uint32_t row = cursor->row;
-    uint32_t pgNr  = row / ROWS_PER_PAGE;
-    void* page = getPage(cursor->table->pager, pgNr);
+void* indexValue(TableCursor* cursor){
+    void* page = getPage(cursor->table->pager, cursor->pgNr);
     
-    uint32_t offset = (row % ROWS_PER_PAGE) * ROW_SIZE;
-    return page + offset;
+    return getLeafValue(page, cursor->cellNr);
 }
 
 Row* prepareRow(int cols){
@@ -228,6 +229,14 @@ int insertRowToTable(inputBuffer* line, Table* table){
     Row* row = prepareRow(2); // 2 coloums required + id column
     TableCursor* cursor = tableEnd(table);
     
+    void* node = getPage(table->pager, table->rootPage);
+    
+    if ((*getLeafCellCount(node)) >= LeafMaxCells){
+        free(row);
+        free(cursor);
+        return ERR_TABLE_FULL;
+    }
+    
     char* instruction = strtok(line->buffer, " ");
     char* colId = strtok(NULL, " ");
     char* col2 = strtok(NULL, " ");
@@ -235,6 +244,7 @@ int insertRowToTable(inputBuffer* line, Table* table){
     
     if (instruction  == NULL || colId == NULL || col2 == NULL || col3 == NULL){
         free(row);
+        free(cursor);
         return FAILED;
     }
     row->id = atoi(colId);
@@ -244,14 +254,14 @@ int insertRowToTable(inputBuffer* line, Table* table){
     }
     if (strlen(col2) > COL_WIDTH || strlen(col3) > COL_WIDTH){
         free(row);
+        free(cursor);
         return ERR_STRING_TOO_LARGE;
     }
     strcpy(row->col[0], col2);
     strcpy(row->col[1], col3);
     
     //insert Row To Table
-    serializeRow(row, indexRow(cursor));
-    table->num_rows++;
+    insertLeaf(cursor, row->id, row);
     
     free(row);
     free(cursor);
@@ -273,7 +283,7 @@ int selectfromTable(inputBuffer* line, Table* table){
     
     //retrieve Rows from Table
     while (!(cursor->endOfTable)) {
-        deserializeRow(indexRow(cursor), row);
+        deserializeRow(indexValue(cursor), row);
         printf("%d %s %s\n", row->id, row->col[0], row->col[1]);
         next(cursor);
     }
@@ -383,11 +393,7 @@ void execute(int stmt, inputBuffer* line, Table** tablePtr){
                 printf("Error! No table created.");
                 break;
             }
-            if (table->num_rows >= TABLE_MAX_ROWS){
-                printf("Error! Table is already full");
-                break;
-            }
-            printf("Inserting...");
+            printf("Inserting...\n");
             res = insertRowToTable(line, table);
             if (res == OK)
                 printf("Successfully executed insert statement.");
@@ -395,6 +401,8 @@ void execute(int stmt, inputBuffer* line, Table** tablePtr){
                 printf("Error! Length of string cannot exceed %d.", COL_WIDTH);
             else if (res == ERR_ID_NOT_POSITIVE)
                 printf("Error! ID is required to be positive");
+            else if (res == ERR_TABLE_FULL)
+                printf("Error! Table is already full");
             else
                 printf("Syntax Error!");
             break;
