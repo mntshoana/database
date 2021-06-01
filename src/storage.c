@@ -42,3 +42,13 @@ void insertLeaf(TableCursor* cursor, uint32_t key, Row* content){
     *(getLeafKey(node, cursor->cellNr)) = key;
     serializeRow(content, getLeafValue(node, cursor->cellNr));
 }
+
+
+void logConstants(){
+    printf("Row size: %d\n", ROW_SIZE);
+    printf("Size of common header in all Nodes: %d\n", BaseNodeSize);
+    printf("Size of the header in a Leaf Node: %d\n", LeafHeaderSize);
+    printf("Available usable space limit given to a single leaf node: %d\n", LeafAllocation);
+    printf("Size of one cell (table row) in a Leaf Node: %d\n", LeafCellSize);
+    printf("Maximum cells possible to allocate within the given space: %d\n", LeafMaxCells);
+}

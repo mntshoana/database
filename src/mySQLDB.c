@@ -162,6 +162,10 @@ void next(TableCursor* cursor){
         cursor->endOfTable = true;
 }
 inputBuffer* initInputBuffer(){
+#if SHOW_INFO_LOGS
+    logConstants();
+#endif
+    
     inputBuffer* buffer = (inputBuffer*)malloc(sizeof(inputBuffer));
     buffer->buffer = NULL;
     buffer->length = 0;
@@ -341,7 +345,8 @@ int processCommand(inputBuffer* cmd, Table** tablePtr){
     if (strcmp(cmd->buffer, ".exit") == 0){
         // Exit
         freeBuffer(cmd);
-        closeDB(table);
+        if (table != NULL)
+            closeDB(table);
         exit(EXIT_SUCCESS);
     }
     if (strncmp(cmd->buffer, ".open", 5) == 0){

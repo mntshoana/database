@@ -54,4 +54,9 @@ void*     getLeafValue(void* node, uint32_t index);
 void      initLeafNode(void* node); // reset cell count to zero
 
 void      insertLeaf(TableCursor* cursor, uint32_t key, Row* value);
+
+// Log info
+#define SHOW_INFO_LOGS 1
+void logConstants();
+
 #endif
