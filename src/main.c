@@ -1,4 +1,5 @@
 #include "mySQLDB.h"
+#include "storage.h"
 
 int main (int argc, char* argv[]){
     // The I/O loop otherwise known as the Read, Execute, Print, Loop (REPL)
@@ -7,6 +8,15 @@ int main (int argc, char* argv[]){
         table = openDB(argv[1]);
     
     inputBuffer* in = initInputBuffer();
+    
+#if SHOW_INFO_LOGS
+    if (table){
+        printf("Tree:\n");
+        logLeafNode( getPage(table->pager, 0) );
+    }
+    logConstants();
+#endif
+    
     while(true){
         outputToUser();
         int res = inputFromUser(in);

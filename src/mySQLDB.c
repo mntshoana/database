@@ -161,11 +161,7 @@ void next(TableCursor* cursor){
     if (cursor->cellNr >= *getLeafCellCount(node))
         cursor->endOfTable = true;
 }
-inputBuffer* initInputBuffer(){
-#if SHOW_INFO_LOGS
-    logConstants();
-#endif
-    
+inputBuffer* initInputBuffer(){    
     inputBuffer* buffer = (inputBuffer*)malloc(sizeof(inputBuffer));
     buffer->buffer = NULL;
     buffer->length = 0;

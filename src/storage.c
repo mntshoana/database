@@ -52,3 +52,11 @@ void logConstants(){
     printf("Size of one cell (table row) in a Leaf Node: %d\n", LeafCellSize);
     printf("Maximum cells possible to allocate within the given space: %d\n", LeafMaxCells);
 }
+void logLeafNode(void* node){
+    uint32_t cellCount = *getLeafCellCount(node);
+    printf("Cell(s) counted: %d\n", cellCount);
+    for (uint32_t i = 0; i < cellCount; i++){
+        uint32_t primaryKey = *getLeafKey(node, i);
+        printf(" - %d : %d\n", i, primaryKey);
+    }
+}

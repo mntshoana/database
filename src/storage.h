@@ -58,5 +58,5 @@ void      insertLeaf(TableCursor* cursor, uint32_t key, Row* value);
 // Log info
 #define SHOW_INFO_LOGS 1
 void logConstants();
-
+void logLeafNode(void* node);
 #endif
