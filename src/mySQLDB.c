@@ -1,6 +1,7 @@
 #include "mySQLDB.h"
 #include "storage.h"
 
+#define ERR_DUPLICATE_KEY -5
 #define ERR_TABLE_FULL -4
 #define ERR_ID_NOT_POSITIVE -3
 #define ERR_STRING_TOO_LARGE -2
@@ -154,6 +155,18 @@ TableCursor* tableEnd(Table* table){
     return cursor;
 }
 
+TableCursor* findFromTable(Table* table, uint32_t key){
+    uint32_t rootPageNr = table->rootPage;
+    void* node = getPage(table->pager, rootPageNr);
+    
+    if (getNodeType(node) == Leaf)
+        return findFromLeaf(table, rootPageNr, key);
+    else {
+        printf("Have not implemented any searching feature for an internal node.");
+        exit(EXIT_FAILURE);
+    }
+}
+
 void next(TableCursor* cursor){
     void* node = getPage(cursor->table->pager, cursor->pgNr);
     cursor->cellNr++;
@@ -227,13 +240,11 @@ void freeRow(Row* row){
 
 int insertRowToTable(inputBuffer* line, Table* table){
     Row* row = prepareRow(2); // 2 coloums required + id column
-    TableCursor* cursor = tableEnd(table);
-    
     void* node = getPage(table->pager, table->rootPage);
     
-    if ((*getLeafCellCount(node)) >= LeafMaxCells){
+    uint32_t cellCount = (*getLeafCellCount(node));
+    if (cellCount >= LeafMaxCells){
         free(row);
-        free(cursor);
         return ERR_TABLE_FULL;
     }
     
@@ -244,7 +255,6 @@ int insertRowToTable(inputBuffer* line, Table* table){
     
     if (instruction  == NULL || colId == NULL || col2 == NULL || col3 == NULL){
         free(row);
-        free(cursor);
         return FAILED;
     }
     row->id = atoi(colId);
@@ -254,14 +264,24 @@ int insertRowToTable(inputBuffer* line, Table* table){
     }
     if (strlen(col2) > COL_WIDTH || strlen(col3) > COL_WIDTH){
         free(row);
-        free(cursor);
         return ERR_STRING_TOO_LARGE;
     }
     strcpy(row->col[0], col2);
     strcpy(row->col[1], col3);
     
+    // Check if key already exists
+    TableCursor* cursor = findFromTable(table, row->id);
+    
+    if (cursor->cellNr < cellCount){
+        uint32_t locatedKey = *getLeafKey(node, cursor->cellNr);
+        if (locatedKey == row->id){
+            free(row);
+            free(cursor);
+            return ERR_DUPLICATE_KEY;
+        }
+    }
     //insert Row To Table
-    insertLeaf(cursor, row->id, row);
+    insertLeaf(cursor, row);
     
     free(row);
     free(cursor);
@@ -404,6 +424,8 @@ void execute(int stmt, inputBuffer* line, Table** tablePtr){
                 printf("Error! ID is required to be positive");
             else if (res == ERR_TABLE_FULL)
                 printf("Error! Table is already full");
+            else if (res == ERR_DUPLICATE_KEY)
+                printf("Error! Cannot insert duplicate keys.\n");
             else
                 printf("Syntax Error!");
             break;

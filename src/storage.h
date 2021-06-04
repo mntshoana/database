@@ -51,12 +51,16 @@ void*     getLeafCell(void* node, uint32_t index);
 uint32_t* getLeafKey(void* node, uint32_t index);
 void*     getLeafValue(void* node, uint32_t index);
 
+NodeType getNodeType(void* node);
+void setNodeType(void* node, NodeType type);
+
 void      initLeafNode(void* node); // reset cell count to zero
 
-void      insertLeaf(TableCursor* cursor, uint32_t key, Row* value);
+void      insertLeaf(TableCursor* cursor, Row* content);
+TableCursor* findFromLeaf(Table* table, uint32_t pageNr, uint32_t key);
 
 // Log info
-#define SHOW_INFO_LOGS 1
+#define SHOW_INFO_LOGS 0
 void logConstants();
 void logLeafNode(void* node);
 #endif

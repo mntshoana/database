@@ -17,11 +17,21 @@ void* getLeafValue(void* node, uint32_t index){
   return getLeafCell(node, index) + LeafKeySize;
 }
 
+NodeType getNodeType(void* node){
+    return *( (uint8_t*) node);
+}
+
+void setNodeType(void* node, NodeType type){
+    *( (uint8_t*) node) =  type;
+}
+
 void initLeafNode(void* node){
+    setNodeType(node, Leaf);
     *getLeafCellCount(node) = 0;
 }
 
-void insertLeaf(TableCursor* cursor, uint32_t key, Row* content){
+void insertLeaf(TableCursor* cursor, Row* content){
+    uint32_t key = content->id;
     void* node = getPage(cursor->table->pager, cursor->pgNr);
    
     uint32_t cellNr = *getLeafCellCount(node);
@@ -41,6 +51,38 @@ void insertLeaf(TableCursor* cursor, uint32_t key, Row* content){
     *(getLeafCellCount(node)) += 1;
     *(getLeafKey(node, cursor->cellNr)) = key;
     serializeRow(content, getLeafValue(node, cursor->cellNr));
+}
+
+TableCursor* findFromLeaf(Table* table, uint32_t pageNr, uint32_t key){
+    void* node = getPage(table->pager, pageNr);
+    uint32_t cellCount = *getLeafCellCount(node);
+    
+    TableCursor* cursor = malloc(sizeof(TableCursor));
+    cursor->table = table;
+    cursor->pgNr = pageNr;
+    
+    // Binary Search
+    uint32_t start = 0;
+    uint32_t end = cellCount;
+    while (start != end){
+        uint32_t index = (start + end) / 2;
+        uint32_t currentKey = *getLeafKey(node, index);
+        if (key == currentKey){ // found
+            cursor->cellNr = index;
+            return cursor; // return position
+        }
+        if (key < currentKey)
+            end = index;
+        else
+            start = index +1;
+    }
+    
+    cursor->cellNr = start;
+    // position here could be:
+    // the key which should be moved to insert new key
+    // or
+    // one past the last key
+    return cursor;
 }
 
 

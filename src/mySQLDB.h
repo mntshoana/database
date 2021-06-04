@@ -62,6 +62,7 @@ Table* openDB(const char* file);
 void updateDisk(Pager* pager, uint32_t pgNr);
 void closeDB(Table* table);
 
+TableCursor* findFromTable(Table* table, uint32_t key);
 TableCursor* tableStart(Table* table);
 TableCursor* tableEnd(Table* table);
 
