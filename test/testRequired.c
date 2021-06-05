@@ -1,5 +1,6 @@
 #include "test.h"
 
+
 int testFileStream;
 char* testFilePath = "bin/write.txt";
 
@@ -75,22 +76,93 @@ void freeBuff(char** ptr){
     free(ptr);
 }
 
+#define TAB "      "
 void show(char** expected, char** result){
     // RESULTS
-    printf("Expected:\n");
+    printf(TAB"Expected:\n");
     for (int i = 0; ; i++){
         if (expected[i] == NULL)
             break;
-        printf("%s\n", expected[i]);
+        printf(TAB"%s\n", expected[i]);
     }
     printf("\n");
     
-    printf("Results:\n");
+    printf(TAB"Results:\n");
     for (int i = 0; ; i++){
         if (result[i] == NULL)
             break;
-        printf("%s\n", result[i]);
+        printf(TAB"%s\n", result[i]);
     }
     printf("\n");
 }
+void showLine(char** expected, int i, char** result, int j){
+    printf(TAB"Expected:\n");
+    printf(TAB"%s\n", expected[i]);
+    printf("\n");
+    
+    printf(TAB"Results:\n");
+    printf(TAB"%s\n", result[j]);
+    printf("\n");
+}
+#undef TAB
 
+#define TAB "   "
+void header(char* title){
+    if (title == "")
+        return;
+    
+    int len = strlen(title) + 18;
+    char* border = (char*)malloc(sizeof(char)* len +1);
+    border[len] = '\0';
+    memset(border, '+', len);
+    printf("\n"TAB"%s", border);
+    printf("\n"TAB"...RUNNING: %s...\n", title);
+    printf(TAB"%s\n\n", border);
+    free(border);
+}
+#undef TAB
+
+char** run(char* title, char** script, bool withArgs){
+    header(title);
+    int backup = replaceStream();
+    char* appPath;
+    if (withArgs){
+       appPath  = "bin/mySQLDB.o bin/default.db";
+       remove ("bin/default.db");
+    }
+    else
+       appPath = "bin/mySQLDB.o";
+    
+    FILE* fp = popen(appPath, "w");
+    if (fp == NULL || fp < 0){
+        printf("Error: popen %d", fp);
+        restoreStream(backup);
+        char** empty = {NULL};
+        return loadFromFile();
+    }
+
+    for(int i = 0; ; i++){
+        if (script[i] == NULL)
+            break;
+        
+        if (script[i] == RESTART){
+            pclose(fp);
+            fp = popen(appPath, "w");
+            if (fp == NULL || fp < 0){
+                printf("Error: popen %d", fp);
+                restoreStream(backup);
+                return loadFromFile();
+            }
+            continue;
+        }
+        
+        if (script[i+1] == NULL || script[i+1] == RESTART)
+            fprintf( fp, "%s\r", script[i]);
+        else
+            fprintf( fp, "%s\n", script[i]);
+    }
+    pclose(fp);
+    restoreStream(backup);
+    return loadFromFile();
+    
+}

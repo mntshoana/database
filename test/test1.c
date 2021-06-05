@@ -1,89 +1,6 @@
-#include "test.h"
-#include "bdd-for-c.h"
+describe ("Basic"){
 
-#define RESTART -1
-void header(char* title){
-    if (title == "")
-        return;
-    
-    int len = strlen(title) + 18;
-    char* border = (char*)malloc(sizeof(char)* len +1);
-    border[len] = '\0';
-    memset(border, '+', len);
-    printf("\n%s", border);
-    printf("\n...RUNNING: \"%s\"...\n", title);
-    printf("%s\n\n", border);
-    free(border);
-}
-char** run(char* title, char** script, bool withArgs){
-    header(title);
-    int backup = replaceStream();
-    char* appPath;
-    if (withArgs){
-       appPath  = "bin/mySQLDB.o bin/default.db";
-       remove ("bin/default.db");
-    }
-    else
-       appPath = "bin/mySQLDB.o";
-    
-    FILE* fp = popen(appPath, "w");
-    if (fp == NULL || fp < 0){
-        printf("Error: popen %d", fp);
-        restoreStream(backup);
-        char** empty = {NULL};
-        return loadFromFile();
-    }
-
-    for(int i = 0; ; i++){
-        if (script[i] == NULL)
-            break;
-        
-        if (script[i] == RESTART){
-            pclose(fp);
-            fp = popen(appPath, "w");
-            if (fp == NULL || fp < 0){
-                printf("Error: popen %d", fp);
-                restoreStream(backup);
-                return loadFromFile();
-            }
-            continue;
-        }
-        
-        if (script[i+1] == NULL || script[i+1] == RESTART)
-            fprintf( fp, "%s\r", script[i]);
-        else
-            fprintf( fp, "%s\n", script[i]);
-    }
-    pclose(fp);
-    restoreStream(backup);
-    return loadFromFile();
-    
-}
-
-
-spec ("main"){
-    static int count;
-    static int failed;
-    
-    after(){
-        printf("%i tests run. %i tests failed\n", count, failed);
-    }
-    
-    before(){
-        count = 0;
-        failed = 0;
-    }
-    
-    before_each(){
-        count++;
-        failed++;
-    }
-    
-    after_each(){
-        failed--;
-    }
-    
-#define TEST1 "STATEMENTS: INSERT and SELECT"
+// TEST1 "STATEMENTS: INSERT and SELECT"
     it (TEST1 ){
         char* script[] = {  "insert 1 user email@address.com",
                             "select",
@@ -114,7 +31,7 @@ spec ("main"){
 
     }
 
-#define TEST2 "ERROR CHECK: Table Full"
+// TEST2 "ERROR CHECK: Table Full"
     it (TEST2){
         const int count = 6002;
         char** script = (char**)malloc(sizeof(char*) * (count + 1) ); // final NULL
@@ -137,13 +54,7 @@ spec ("main"){
                 break;
         }
         i -= 2; // last == NULL; last -1 == "DB >" which is the exit line
-        printf("Expected:\n");
-        printf("%s\n", expected[0]);
-        printf("\n");
-        
-        printf("Results:\n");
-        printf("%s\n", result[i]);
-        printf("\n");
+        showLine(expected, 0, result, i);
         
         int len = strlen(result[0]);
         check(strncmp(result[i], expected[0], len) == 0);
@@ -153,7 +64,7 @@ spec ("main"){
     }
     
 #define A_32 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-#define TEST3 "INSERTING STRINGS OF MAXIMUM LENGTH"
+// TEST3 "INSERTING STRINGS OF MAXIMUM LENGTH"
     it(TEST3){
         char* script[] = {
             "insert 1 "A_32" "A_32,
@@ -186,7 +97,7 @@ spec ("main"){
     }
     
 #define A_33 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-#define TEST4 "ERROR CHECK: STRINGS OVER MAXIMUM LENGTH"
+// TEST4 "ERROR CHECK: STRINGS OVER MAXIMUM LENGTH"
     it(TEST4){
         char* script[] = {
             "insert 1 "A_33" "A_33,
@@ -217,7 +128,7 @@ spec ("main"){
         freeBuff(result);
     }
     
-#define TEST5 "ERROR CHECK: ID MUST NOT BE NEGATIVE"
+// TEST5 "ERROR CHECK: ID MUST NOT BE NEGATIVE"
     it(TEST5){
         char* script[] = {
             "insert -1 this andThat",
@@ -248,7 +159,7 @@ spec ("main"){
         freeBuff(result);
     }
     
-#define TEST6 "CHECK: DATA PERSISTS AFTER CLOSING CONNECTION"
+// TEST6 "CHECK: DATA PERSISTS AFTER CLOSING CONNECTION"
     it(TEST6){
         remove("bin/persist.db");
         
@@ -294,3 +205,4 @@ spec ("main"){
     }
 
 }
+

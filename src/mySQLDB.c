@@ -425,7 +425,7 @@ void execute(int stmt, inputBuffer* line, Table** tablePtr){
             else if (res == ERR_TABLE_FULL)
                 printf("Error! Table is already full");
             else if (res == ERR_DUPLICATE_KEY)
-                printf("Error! Cannot insert duplicate keys.\n");
+                printf("Error! Cannot insert duplicate keys");
             else
                 printf("Syntax Error!");
             break;
