@@ -55,8 +55,9 @@ NodeType getNodeType(void* node);
 void setNodeType(void* node, NodeType type);
 
 void      initLeafNode(void* node); // reset cell count to zero
-
 void      insertLeaf(TableCursor* cursor, Row* content);
+void      splitLeaf(TableCursor* cursor, uint32_t key, Row* content); // creates a new node and creates/updates the parent node
+
 TableCursor* findFromLeaf(Table* table, uint32_t pageNr, uint32_t key);
 
 // Log info

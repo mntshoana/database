@@ -37,8 +37,8 @@ void insertLeaf(TableCursor* cursor, Row* content){
     uint32_t cellNr = *getLeafCellCount(node);
     if (cellNr >= LeafMaxCells) {
        // Node full
-         printf("No splitting of a leaf node is implemented yet.\n");
-         exit(EXIT_FAILURE);
+        *splitLeaf(cursor, key, content);
+        return;
     }
    
     if (cursor->cellNr <  cellNr) {
