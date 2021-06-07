@@ -57,6 +57,7 @@ typedef struct {
 
 Pager* initPager(const char* file);
 void* getPage(Pager* pager, uint32_t pgNr);
+uint32_t getEmptyPage(Pager* pager);
 
 Table* openDB(const char* file);
 void updateDisk(Pager* pager, uint32_t pgNr);

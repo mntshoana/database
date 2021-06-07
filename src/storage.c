@@ -1,6 +1,24 @@
 #include "storage.h"
 #include "mySQLDB.h"
 
+
+
+NodeType getNodeType(void* node){
+    return *( (uint8_t*) node);
+}
+
+void setNodeType(void* node, NodeType type){
+    *( (uint8_t*) node) =  type;
+}
+
+bool isRootNode(void* node){
+    uint8_t isRootState = *(uint8_t*)(node + IsRootOffset);
+    return isRootState;
+}
+void setIsRootNode(void* node, bool isRootNodeState){
+    *(uint8_t*)(node + IsRootOffset) = isRootNodeState;
+}
+
 uint32_t* getLeafCellCount(void* node){
     return node + LeafCellCountOffset;
 }
@@ -15,14 +33,6 @@ uint32_t* getLeafKey(void* node, uint32_t index){
 
 void* getLeafValue(void* node, uint32_t index){
   return getLeafCell(node, index) + LeafKeySize;
-}
-
-NodeType getNodeType(void* node){
-    return *( (uint8_t*) node);
-}
-
-void setNodeType(void* node, NodeType type){
-    *( (uint8_t*) node) =  type;
 }
 
 void initLeafNode(void* node){
@@ -52,6 +62,7 @@ void insertLeaf(TableCursor* cursor, Row* content){
     *(getLeafKey(node, cursor->cellNr)) = key;
     serializeRow(content, getLeafValue(node, cursor->cellNr));
 }
+
 
 TableCursor* findFromLeaf(Table* table, uint32_t pageNr, uint32_t key){
     void* node = getPage(table->pager, pageNr);

@@ -1,8 +1,7 @@
 #include "mySQLDB.h"
 #include "storage.h"
 
-#define ERR_DUPLICATE_KEY -5
-#define ERR_TABLE_FULL -4
+#define ERR_DUPLICATE_KEY -4
 #define ERR_ID_NOT_POSITIVE -3
 #define ERR_STRING_TOO_LARGE -2
 #define FAILED -1
@@ -66,6 +65,10 @@ void* getPage(Pager* pager, uint32_t pgNr){
         pager->pageCount = pgNr +1;
     
     return pager->pages[pgNr];
+}
+uint32_t getEmptyPage(Pager* pager){
+    // Todo, recycle free pages
+    return pager->pageCount;
 }
 
 Table* openDB(const char* file){
@@ -422,8 +425,6 @@ void execute(int stmt, inputBuffer* line, Table** tablePtr){
                 printf("Error! Length of string cannot exceed %d.", COL_WIDTH);
             else if (res == ERR_ID_NOT_POSITIVE)
                 printf("Error! ID is required to be positive");
-            else if (res == ERR_TABLE_FULL)
-                printf("Error! Table is already full");
             else if (res == ERR_DUPLICATE_KEY)
                 printf("Error! Cannot insert duplicate keys");
             else

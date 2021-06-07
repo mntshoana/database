@@ -18,6 +18,30 @@ static const uint8_t BaseNodeSize = NodeTypeSize + IsRootSize + ParentPtrSize;
 static const uint32_t IsRootOffset = NodeTypeSize;
 static const uint32_t ParentPointOffset = NodeTypeSize + IsRootSize;
 
+// Internal Node
+static const uint32_t InternalKeyCountSize = sizeof(uint32_t);
+static const uint32_t InternalRighChildSize = sizeof(uint32_t);
+static const uint32_t InternalHeaderSize = BaseNodeSize + InternalKeyCountSize + InternalRighChildSize;
+
+static const uint32_t InternalKeySizeOffset = BaseNodeSize;
+static const uint32_t InternalRighChildSizeOffset = InternalKeySizeOffset + InternalKeyCountSize;
+// Internal Node Body
+static const uint32_t InternalKeySize = sizeof(uint32_t);
+static const uint32_t InternalChildSize = sizeof(uint32_t);
+static const uint32_t InternalCellSize = InternalKeySize + InternalChildSize;
+// Note: B = byte
+// Internal node structure will involve...
+//
+//---nodeType[1B] ----|---isRoot[1B]---|---parentPtr[4B]---|...
+//internalKeyCount[4B]|...
+//-rightChildPtr[4B]--|
+//----childPtr[4B]----|---key[4B]---|...
+//----... more keys and values ...----|...
+//-- Total 510 childPtrs and keys [4080B]--|
+//------------------------------------| // all packed into 4096 bytes (one page size)
+//-- wasted space: 4096 - (1+1+4+4+4+4080)
+//--             : 4096 - 4094
+//--             : 2 bytes wasted from page size
 
 // Leaf Node
 static const uint32_t LeafCellCountSize = sizeof(uint32_t);
@@ -33,6 +57,8 @@ static const uint32_t LeafValueOffset = LeafKeySize;
 static const uint32_t LeafAllocation = PAGE_SIZE - LeafHeaderSize;
 static const uint32_t LeafMaxCells = LeafAllocation / LeafCellSize;
 
+static const uint32_t leafSplitCountForRight = (LeafMaxCells +1) / 2;
+static const uint32_t leafSplitCountForLeft = (LeafMaxCells +1) - leafSplitCountForRight;
 // Note: B = byte
 // Leaf node structure will involve...
 //
@@ -46,13 +72,18 @@ static const uint32_t LeafMaxCells = LeafAllocation / LeafCellSize;
 //--             : 4096 - 4070
 //--             : 26 bytes wasted from page size
 
+void createNewRoot(Table* table, uint32_t rightChildPageNumber);
+
+NodeType getNodeType(void* node);
+void setNodeType(void* node, NodeType type);
+
+bool isRootNode(void* node);
+void setIsRootNode(void* node, bool isRootNode);
+
 uint32_t* getLeafCellCount(void* node);
 void*     getLeafCell(void* node, uint32_t index);
 uint32_t* getLeafKey(void* node, uint32_t index);
 void*     getLeafValue(void* node, uint32_t index);
-
-NodeType getNodeType(void* node);
-void setNodeType(void* node, NodeType type);
 
 void      initLeafNode(void* node); // reset cell count to zero
 void      insertLeaf(TableCursor* cursor, Row* content);
@@ -60,6 +91,12 @@ void      splitLeaf(TableCursor* cursor, uint32_t key, Row* content); // creates
 
 TableCursor* findFromLeaf(Table* table, uint32_t pageNr, uint32_t key);
 
+
+internalNodeXChild();
+internalNodeRightChild();
+internalNodeKeyCount();
+internalNodeKeyAt();
+internalNodeMaxKey();
 // Log info
 #define SHOW_INFO_LOGS 0
 void logConstants();
