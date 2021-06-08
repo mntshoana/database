@@ -63,7 +63,28 @@ void insertLeaf(TableCursor* cursor, Row* content){
     serializeRow(content, getLeafValue(node, cursor->cellNr));
 }
 
-
+void createNewRoot(Table* table, uint32_t rightChildPageNumber){
+    // Splits the root
+    void* root = getPage(table->pager, table->rootPage);
+    void* rightChild = getPage(table->pager, rightChildPageNumber);
+    // create new page for left child
+    uint32_t newPage = getEmptyPage(table->pager);
+    void* leftChild = getPage(table->pager, newPage);
+    
+    // The old root is copied to the left child
+    memcpy(leftChild, root, PAGE_SIZE);
+    setIsRootNode(leftChild, false);
+    
+    // Initialize root as internal node
+    initInternalNode(root);
+    setIsRootNode(root, true);
+    *internalNodeKeyCount = 1; // with one key
+    // add two children
+    *internalNodeXChild(root, 0) = newPage; // left node
+    *internalNodeKeyAt(root, 0) = internalNodeMaxKey(leftChild);
+    *internalNodeRightChild(root) = rightChildPageNumber;
+    
+}
 TableCursor* findFromLeaf(Table* table, uint32_t pageNr, uint32_t key){
     void* node = getPage(table->pager, pageNr);
     uint32_t cellCount = *getLeafCellCount(node);
