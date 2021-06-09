@@ -85,6 +85,46 @@ void createNewRoot(Table* table, uint32_t rightChildPageNumber){
     *internalNodeRightChild(root) = rightChildPageNumber;
     
 }
+void      splitLeaf(TableCursor* cursor, uint32_t key, Row* content){
+    uint32_t pageNr = getEmptyPage(cursor->table->pager);
+    
+    void* leftNode = getPage(cursor->table->pager, cursor->pageNr);
+    void* rightNode = getPage(cursor->table->pager, pageNr);
+    initLeafNode(newNode);
+    
+    // Divide keys into correct position
+    for (uint32_t i = LeafMaxCells; i >= 0; i--){
+        void* correctNode;
+        if (i >= leafSplitCountForLeft)
+            correctNode = rightNode;
+        else
+            correctNode = leftNode;
+        
+        uint32_t index = i % leafSplitCountForLeft;
+        void* targetCell = getLeafCell(correctNode, index);
+        
+        if (i == cursor->cellNr)
+            serializeRow(content, targetCell);
+        else if (i > cursor->cellNr)
+            memcpy(targetCell, getLeafCell(leftNode, i-1), LeafCellSize);
+        else
+            memcpy(targetCell, getLeafCell(leftNode, i), LeafCellSize);
+        
+    }
+    
+    // Update header
+    *getLeafCellCount(leftNode)  = leafSplitCountForLeft;
+    *getLeafCellCount(rightNode) = leafSplitCountForRight;
+    
+    // Create or Update Parent
+    if (isRootNode(leftNode))
+        return createNewRoot(cursor->table, pageNr);
+    else {
+        printf("Error: still need to implement feature to update parent after spliting a leaf node");
+        exit(EXIT_FAILURE);
+    }
+    
+}
 TableCursor* findFromLeaf(Table* table, uint32_t pageNr, uint32_t key){
     void* node = getPage(table->pager, pageNr);
     uint32_t cellCount = *getLeafCellCount(node);
