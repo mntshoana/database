@@ -1,7 +1,28 @@
 #include "storage.h"
 #include "mySQLDB.h"
 
-
+void createNewRoot(Table* table, uint32_t rightChildPageNumber){
+    // Splits the root
+    void* root = getPage(table->pager, table->rootPage);
+    void* rightChild = getPage(table->pager, rightChildPageNumber);
+    // create new page for left child
+    uint32_t newPage = getEmptyPage(table->pager);
+    void* leftChild = getPage(table->pager, newPage);
+    
+    // The old root is copied to the left child
+    memcpy(leftChild, root, PAGE_SIZE);
+    setIsRootNode(leftChild, false);
+    
+    // Initialize root as internal node
+    initInternalNode(root);
+    setIsRootNode(root, true);
+    *getInternalNodeKeyCount(root) = 1; // with one key
+    // add two children
+    *getInternalNodeChildAt(root, 0) = newPage; // left node
+    *getInternalNodeKeyAt(root, 0) = getNodeMaxKey(leftChild);
+    *getInternalNodeRightChild(root) = rightChildPageNumber;
+    
+}
 
 NodeType getNodeType(void* node){
     return *( (uint8_t*) node);
@@ -13,7 +34,7 @@ void setNodeType(void* node, NodeType type){
 
 bool isRootNode(void* node){
     uint8_t isRootState = *(uint8_t*)(node + IsRootOffset);
-    return isRootState;
+    return (bool)isRootState;
 }
 void setIsRootNode(void* node, bool isRootNodeState){
     *(uint8_t*)(node + IsRootOffset) = isRootNodeState;
@@ -38,6 +59,7 @@ void* getLeafValue(void* node, uint32_t index){
 void initLeafNode(void* node){
     setNodeType(node, Leaf);
     *getLeafCellCount(node) = 0;
+    setIsRootNode(node, false);
 }
 
 void insertLeaf(TableCursor* cursor, Row* content){
@@ -47,7 +69,7 @@ void insertLeaf(TableCursor* cursor, Row* content){
     uint32_t cellNr = *getLeafCellCount(node);
     if (cellNr >= LeafMaxCells) {
        // Node full
-        *splitLeaf(cursor, key, content);
+        splitLeaf(cursor, key, content);
         return;
     }
    
@@ -63,34 +85,12 @@ void insertLeaf(TableCursor* cursor, Row* content){
     serializeRow(content, getLeafValue(node, cursor->cellNr));
 }
 
-void createNewRoot(Table* table, uint32_t rightChildPageNumber){
-    // Splits the root
-    void* root = getPage(table->pager, table->rootPage);
-    void* rightChild = getPage(table->pager, rightChildPageNumber);
-    // create new page for left child
-    uint32_t newPage = getEmptyPage(table->pager);
-    void* leftChild = getPage(table->pager, newPage);
-    
-    // The old root is copied to the left child
-    memcpy(leftChild, root, PAGE_SIZE);
-    setIsRootNode(leftChild, false);
-    
-    // Initialize root as internal node
-    initInternalNode(root);
-    setIsRootNode(root, true);
-    *internalNodeKeyCount = 1; // with one key
-    // add two children
-    *internalNodeXChild(root, 0) = newPage; // left node
-    *internalNodeKeyAt(root, 0) = internalNodeMaxKey(leftChild);
-    *internalNodeRightChild(root) = rightChildPageNumber;
-    
-}
 void      splitLeaf(TableCursor* cursor, uint32_t key, Row* content){
     uint32_t pageNr = getEmptyPage(cursor->table->pager);
     
-    void* leftNode = getPage(cursor->table->pager, cursor->pageNr);
+    void* leftNode = getPage(cursor->table->pager, cursor->pgNr);
     void* rightNode = getPage(cursor->table->pager, pageNr);
-    initLeafNode(newNode);
+    initLeafNode(rightNode);
     
     // Divide keys into correct position
     for (uint32_t i = LeafMaxCells; i >= 0; i--){
@@ -157,6 +157,48 @@ TableCursor* findFromLeaf(Table* table, uint32_t pageNr, uint32_t key){
     return cursor;
 }
 
+uint32_t* getInternalNodeKeyCount(void* node){
+    return node + InternalKeySizeOffset;
+}
+
+uint32_t* getInternalNodeCell(void* node, uint32_t index){
+    return node + InternalHeaderSize + index * InternalCellSize;
+}
+
+uint32_t* getInternalNodeRightChild(void* node){
+    return node + InternalRighChildSizeOffset;
+}
+
+uint32_t* getInternalNodeChildAt(void* node, uint32_t childNr){
+    uint32_t keyCount = *getInternalNodeKeyCount(node);
+    if (childNr > keyCount){
+        printf("Error: Attempt to access child number %d, which is greater than the number of keys %d\n",
+               childNr, keyCount);
+        exit(EXIT_FAILURE);
+    } else if (childNr == keyCount)
+        return getInternalNodeRightChild(node);
+    else
+        return getInternalNodeCell(node, childNr);
+}
+
+uint32_t* getInternalNodeKeyAt(void* node, uint32_t keyNr){
+    return getInternalNodeCell(node, keyNr) + InternalChildSize;
+}
+
+uint32_t* getNodeMaxKey(void* node){
+    switch (getNodeType(node)){
+        case Internal:
+            return *getInternalNodeKeyAt(node, *getInternalNodeKeyCount(node) - 1);
+        case Leaf:
+            return *getLeafKey(node, *getLeafCellCount(node) -1);
+    }
+}
+
+void initInternalNode(void* node){
+    setNodeType(node, Internal);
+    setIsRootNode(node, false);
+    *getInternalNodeKeyCount(node) = 0;
+}
 
 void logConstants(){
     printf("Row size: %d\n", ROW_SIZE);

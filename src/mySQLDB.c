@@ -81,6 +81,7 @@ Table* openDB(const char* file){
         // Empty, initialize page 0 as leaf
         void* root = getPage(table->pager, 0);
         initLeafNode(root);
+        setIsRootNode(root, true);
     }
     
     return table;
@@ -246,10 +247,10 @@ int insertRowToTable(inputBuffer* line, Table* table){
     void* node = getPage(table->pager, table->rootPage);
     
     uint32_t cellCount = (*getLeafCellCount(node));
-    if (cellCount >= LeafMaxCells){
+    /*if (cellCount >= LeafMaxCells){
         free(row);
         return ERR_TABLE_FULL;
-    }
+    }*/
     
     char* instruction = strtok(line->buffer, " ");
     char* colId = strtok(NULL, " ");

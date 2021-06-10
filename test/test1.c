@@ -30,7 +30,7 @@ describe ("Basic"){
         freeBuff(result);
 
     }
-
+/*
 // TEST2 "ERROR CHECK: Table Full"
     it (TEST2){
         const int count = 6002;
@@ -62,7 +62,7 @@ describe ("Basic"){
         freeBuff(result);
         freeBuff(script);
     }
-    
+*/
 #define A_32 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 // TEST3 "INSERTING STRINGS OF MAXIMUM LENGTH"
     it(TEST3){
