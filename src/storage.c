@@ -208,11 +208,38 @@ void logConstants(){
     printf("Size of one cell (table row) in a Leaf Node: %d\n", LeafCellSize);
     printf("Maximum cells possible to allocate within the given space: %d\n", LeafMaxCells);
 }
-void logLeafNode(void* node){
-    uint32_t cellCount = *getLeafCellCount(node);
-    printf("Cell(s) counted: %d\n", cellCount);
-    for (uint32_t i = 0; i < cellCount; i++){
-        uint32_t primaryKey = *getLeafKey(node, i);
-        printf(" - %d : %d\n", i, primaryKey);
+
+void spaceIndent(uint32_t level){
+    for (uint32_t i = 0; i < level; i++)
+        printf("  ");
+}
+void logTree(void* pager, uint32_t pgNr, uint32_t level){
+    void* node = getPage(pager, pgNr);
+    uint32_t keyCount, child;
+    
+    switch (getNodeType(node)){
+        case Leaf:
+            keyCount = *getLeafCellCount(node);
+            spaceIndent(level);
+            printf("- leaf [size %d]\n", keyCount);
+            for (uint32_t i = 0; i < keyCount; i++){
+                spaceIndent(level +1);
+                printf("- %d\n", *getLeafKey(node, i));
+            }
+            break;
+        case Internal:
+            keyCount = *getInternalNodeKeyCount(node);
+            spaceIndent(level);
+            printf("- internal [size %d]\n", keyCount);
+            for (uint32_t i = 0; i < keyCount; i++){
+                child = *getInternalNodeChildAt(node, i);
+                logTree(pager, child, level+1);
+                
+                spaceIndent(level+1);
+                printf("- key %d\n", *getInternalNodeKeyAt(node, i));
+            }
+            child = *getInternalNodeRightChild(node);
+            logTree(pager, child, level+1);
+            break;
     }
 }

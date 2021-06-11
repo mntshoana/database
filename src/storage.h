@@ -119,7 +119,9 @@ void initInternalNode(void* node);
 //--------------------------------------------------------
 
 // Log info
-#define SHOW_INFO_LOGS 0
+#define SHOW_INFO_LOGS 1
 void logConstants();
-void logLeafNode(void* node);
+
+void spaceIndent(uint32_t level);
+void logTree(void* pager, uint32_t pgNr, uint32_t level);
 #endif

@@ -12,7 +12,7 @@ int main (int argc, char* argv[]){
 #if SHOW_INFO_LOGS
     if (table){
         printf("Tree:\n");
-        logLeafNode( getPage(table->pager, 0) );
+        logTree(table->pager, 0, 0);
     }
     logConstants();
 #endif
