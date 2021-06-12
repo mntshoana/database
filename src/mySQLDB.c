@@ -166,8 +166,7 @@ TableCursor* findFromTable(Table* table, uint32_t key){
     if (getNodeType(node) == Leaf)
         return findFromLeaf(table, rootPageNr, key);
     else {
-        printf("Have not implemented any searching feature for an internal node.");
-        exit(EXIT_FAILURE);
+        return nodeFind(table, rootPageNr, key);
     }
 }
 

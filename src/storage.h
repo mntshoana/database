@@ -113,7 +113,7 @@ uint32_t* getInternalNodeKeyAt(void* node, uint32_t keyNr);
 
 uint32_t* getNodeMaxKey(void* node);
 void initInternalNode(void* node);
-
+TableCursor* nodeFind(Table* table, uint32_t pageNr, uint32_t key);
 
 // End of Node Functions
 //--------------------------------------------------------

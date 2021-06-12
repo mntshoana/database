@@ -200,6 +200,35 @@ void initInternalNode(void* node){
     *getInternalNodeKeyCount(node) = 0;
 }
 
+TableCursor* nodeFind(Table* table, uint32_t pageNr, uint32_t key){
+    void* node = getPage(table->pager, pageNr);
+    uint32_t keyCount = *getInternalNodeKeyCount(node);
+    
+    // Binary Search for child index
+    uint32_t min = 0;
+    uint32_t max = keyCount;
+    
+    while (min != max){
+        uint32_t index = (min+max) / 2;
+        uint32_t keyToRight = *getInternalNodeKeyAt(node, index);
+        if (keyToRight >= key)
+            max = index;
+        else
+            min = index + 1;
+    }
+    
+    uint32_t childIndex = *getInternalNodeChildAt(node, min);
+    void* child = getPage(table->pager, childIndex);
+    switch (getNodeType(child)){
+        case Leaf:
+            return findFromLeaf(table, childIndex, key);
+        case Internal:
+            return nodeFind(table, childIndex, key);
+    }
+    
+}
+
+
 void logConstants(){
     printf("Row size: %d\n", ROW_SIZE);
     printf("Size of common header in all Nodes: %d\n", BaseNodeSize);
