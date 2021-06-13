@@ -136,10 +136,7 @@ void closeDB(Table* table){
 }
 
 TableCursor* tableStart(Table* table){
-    TableCursor* cursor = (TableCursor*)malloc(sizeof(TableCursor));
-    cursor->table = table;
-    cursor->cellNr = 0;
-    cursor->pgNr = table->rootPage;
+    TableCursor* cursor = findFromTable(table, 0);
     
     void* root = getPage(table->pager, table->rootPage);
     cursor->endOfTable  = (*getLeafCellCount(root) == 0);
@@ -174,9 +171,18 @@ void next(TableCursor* cursor){
     void* node = getPage(cursor->table->pager, cursor->pgNr);
     cursor->cellNr++;
     
-    if (cursor->cellNr >= *getLeafCellCount(node))
-        cursor->endOfTable = true;
+    if (cursor->cellNr >= *getLeafCellCount(node)){
+        uint32_t nextPage = *getLeafNextNode(node);
+        if (nextPage == 0)
+            cursor->endOfTable = true;
+        else {
+            // move onto the next leaf node
+            cursor->pgNr = nextPage;
+            cursor->cellNr = 0;
+        }
+    }
 }
+
 inputBuffer* initInputBuffer(){    
     inputBuffer* buffer = (inputBuffer*)malloc(sizeof(inputBuffer));
     buffer->buffer = NULL;

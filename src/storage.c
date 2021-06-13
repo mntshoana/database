@@ -44,6 +44,10 @@ uint32_t* getLeafCellCount(void* node){
     return node + LeafCellCountOffset;
 }
 
+uint32_t* getLeafNextNode(void* node){
+    return node + LeafNextNodeOffset;
+}
+
 void* getLeafCell(void* node, uint32_t index){
     return node + LeafHeaderSize + index * LeafCellSize;
 }
@@ -60,6 +64,7 @@ void initLeafNode(void* node){
     setNodeType(node, Leaf);
     *getLeafCellCount(node) = 0;
     setIsRootNode(node, false);
+    *getLeafNextNode(node) = 0; // here, zero represents no siblings
 }
 
 void insertLeaf(TableCursor* cursor, Row* content){
@@ -92,6 +97,9 @@ void      splitLeaf(TableCursor* cursor, uint32_t key, Row* content){
     void* rightNode = getPage(cursor->table->pager, pageNr);
     initLeafNode(rightNode);
     
+    *getLeafNextNode(rightNode) = *getLeafNextNode(leftNode);
+    *getLeafNextNode(leftNode) = pageNr;
+    
     // Divide keys into correct position
     for (uint32_t i = LeafMaxCells; i >= 0; i--){
         void* correctNode;
@@ -103,8 +111,10 @@ void      splitLeaf(TableCursor* cursor, uint32_t key, Row* content){
         uint32_t index = i % leafSplitCountForLeft;
         void* targetCell = getLeafCell(correctNode, index);
         
-        if (i == cursor->cellNr)
-            serializeRow(content, targetCell);
+        if (i == cursor->cellNr) {
+            serializeRow(content, getLeafValue(targetCell, index));
+            *getLeafKey(targetCell, index) = key;
+        }
         else if (i > cursor->cellNr)
             memcpy(targetCell, getLeafCell(leftNode, i-1), LeafCellSize);
         else

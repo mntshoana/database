@@ -56,25 +56,27 @@ static const uint32_t InternalCellSize = InternalKeySize + InternalChildSize;
 //
 //START of Leaf node structure
 //---nodeType[1B] ---|---isRoot[1B]---|---parentPtr[4B]---|...
-//---cellCount[4B]---|...
+//---cellCount[4B]---|--nextNode[4B]--|...
 //------key[4B]------|---value[66B]---|... // change value to 293B in future
 //----... more keys and values ...----|...
 //-- Total 58 keys and values[4060B]--|
 //END of Structure
 //
 //   All packed into 4096 bytes (one page size)
-//   wasted space: 4096 - (1+1+4+4+4060)
-//               : 4096 - 4070
-//               : 26 bytes wasted from page size
+//   wasted space: 4096 - (1+1+4+4+4+4060)
+//               : 4096 - 4074
+//               : 22 bytes wasted from page size
 
 static const uint32_t LeafCellCountSize = sizeof(uint32_t);
-static const uint32_t LeafHeaderSize =  BaseNodeSize + LeafCellCountSize;
+static const uint32_t LeafNextNodeSize = sizeof(uint32_t);
+static const uint32_t LeafHeaderSize =  BaseNodeSize + LeafCellCountSize + LeafNextNodeSize;
 // Leaf Node Body
 static const uint32_t LeafKeySize = sizeof(uint32_t);
 static const uint32_t LeafValueSize = ROW_SIZE;
 static const uint32_t LeafCellSize = LeafKeySize + LeafValueSize;
 
 static const uint32_t LeafCellCountOffset = BaseNodeSize;
+static const uint32_t LeafNextNodeOffset = LeafCellCountOffset + LeafCellCountSize;
 static const uint32_t LeafValueOffset = LeafKeySize;
  
 static const uint32_t LeafAllocation = PAGE_SIZE - LeafHeaderSize;
@@ -95,6 +97,7 @@ bool isRootNode(void* node);
 void setIsRootNode(void* node, bool isRootNode);
 
 uint32_t* getLeafCellCount(void* node);
+uint32_t* getLeafNextNode(void* node);
 void*     getLeafCell(void* node, uint32_t index);
 uint32_t* getLeafKey(void* node, uint32_t index);
 void*     getLeafValue(void* node, uint32_t index);
@@ -119,7 +122,7 @@ TableCursor* nodeFind(Table* table, uint32_t pageNr, uint32_t key);
 //--------------------------------------------------------
 
 // Log info
-#define SHOW_INFO_LOGS 1
+#define SHOW_INFO_LOGS 0
 void logConstants();
 
 void spaceIndent(uint32_t level);
