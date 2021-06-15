@@ -47,6 +47,10 @@ static const uint32_t InternalRighChildSizeOffset = InternalKeySizeOffset + Inte
 static const uint32_t InternalKeySize = sizeof(uint32_t);
 static const uint32_t InternalChildSize = sizeof(uint32_t);
 static const uint32_t InternalCellSize = InternalKeySize + InternalChildSize;
+
+// This is small for testing
+static const uint32_t InternalNodeMaxCells = 3;
+
 // End of Internal Node Sructure
 //-------------------------------
 
@@ -90,6 +94,8 @@ static const uint32_t leafSplitCountForLeft = (LeafMaxCells +1) - leafSplitCount
 //Node functions
 void createNewRoot(Table* table, uint32_t rightChildPageNumber);
 
+uint32_t* getParentNode(void* node);
+
 NodeType getNodeType(void* node);
 void setNodeType(void* node, NodeType type);
 
@@ -106,6 +112,7 @@ void      initLeafNode(void* node); // reset cell count to zero
 void      insertLeaf(TableCursor* cursor, Row* content);
 void      splitLeaf(TableCursor* cursor, uint32_t key, Row* content); // creates a new node and creates/updates the parent node
 
+
 TableCursor* findFromLeaf(Table* table, uint32_t pageNr, uint32_t key);
 
 uint32_t* getInternalNodeKeyCount(void* node);
@@ -117,7 +124,10 @@ uint32_t* getInternalNodeKeyAt(void* node, uint32_t keyNr);
 uint32_t* getNodeMaxKey(void* node);
 void initInternalNode(void* node);
 TableCursor* nodeFind(Table* table, uint32_t pageNr, uint32_t key);
+uint32_t* nodeFindChild(void* node, uint32_t key);
 
+void updateInternalNodeKey(void* node, uint32_t oldKeyValue, uint32_t newKeyValue);
+void insertInternalNodeChild(Table* table, uint32_t parentPage, uint32_t childPage);
 // End of Node Functions
 //--------------------------------------------------------
 
