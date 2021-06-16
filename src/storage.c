@@ -278,6 +278,7 @@ void insertInternalNodeChild(Table* table, uint32_t parentPage, uint32_t childPa
     if (originalKeyCount >= InternalNodeMaxCells) {
         printf("Error: Have not implemented splitting of internal node\n");
         exit(EXIT_FAILURE);
+        // Todo, this is the  next step
     }
     
     uint32_t rightChildPage = *getInternalNodeRightChild(parent);
